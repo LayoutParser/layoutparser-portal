@@ -1,0 +1,68 @@
+# Template de vhost Nginx para dev-local (WSL), equivalente ao public/web.config do IIS.
+# Placeholders (__PUBLIC_HOST__, __DEPLOY_ROOT__, __BFF_PORT__, __SSL_CERT_PATH__,
+# __SSL_CERT_KEY_PATH__) são substituídos por scripts/deploy-linux.sh antes de copiar para
+# /etc/nginx/sites-available/<SITE_NAME>.conf (com symlink em sites-enabled/). Não editar
+# manualmente o arquivo gerado — ajuste este template e rode o deploy novamente.
+
+server {
+    listen 443 ssl http2;
+    server_name __PUBLIC_HOST__;
+
+    ssl_certificate     __SSL_CERT_PATH__;      # gerado via mkcert
+    ssl_certificate_key __SSL_CERT_KEY_PATH__;
+
+    client_max_body_size 32m; # equivalente a maxAllowedContentLength=33554432
+
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Cross-Origin-Resource-Policy "same-origin" always;
+    add_header X-Permitted-Cross-Domain-Policies "none" always;
+
+    root __DEPLOY_ROOT__/current;
+    index index.html;
+
+    location = /health { return 404; }
+
+    # Zera headers de trust vindos do cliente para impedir spoofing — o fluxo real de
+    # autenticação é o OIDC nativo do BFF (/auth/login, /auth/callback), não o trust de header.
+    location /auth/ {
+        proxy_pass http://127.0.0.1:__BFF_PORT__;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Iis-User "";
+        proxy_set_header X-Iis-Roles "";
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:__BFF_PORT__;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Iis-User "";
+        proxy_set_header X-Iis-Roles "";
+        client_max_body_size 32m;
+    }
+
+    location /assets/ {
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location / {
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}
+
+server {
+    listen 80;
+    server_name __PUBLIC_HOST__;
+    return 301 https://$host$request_uri;
+}

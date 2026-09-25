@@ -228,7 +228,7 @@ O ecossistema é dividido em quatro projetos:
 
 | Projeto                 | Responsabilidade                                                                |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| **LayoutParserReact**   | Este repositório: interface React e gateway Node/Fastify.                       |
+| **layoutparser-portal**   | Este repositório: interface React e gateway Node/Fastify.                       |
 | **LayoutParserApi**     | API .NET que orquestra parsing, validação, catálogo, cache, IA e transformação. |
 | **LayoutParserLib**     | Biblioteca usada na integração com criptografia Sysmiddle.                      |
 | **LayoutParserDecrypt** | Processo auxiliar de descriptografia.                                           |
@@ -627,7 +627,7 @@ exclusão da `main` permanecem bloqueados, sem bypass administrativo.
 ## Estrutura do repositório
 
 ```text
-LayoutParserReact/
+layoutparser-portal/
 ├── src/
 │   ├── components/       # upload, análise, XML, admin, autenticação e componentes compartilhados
 │   ├── layouts/          # shell e navegação

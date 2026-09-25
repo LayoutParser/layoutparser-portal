@@ -13,7 +13,10 @@
 #      ADMIN_USERS=... ENTRA_TENANT_ID=... ENTRA_CLIENT_ID=... ENTRA_CLIENT_SECRET=... \
 #      SSL_CERT_PATH=... SSL_CERT_KEY_PATH=... ./scripts/deploy-linux.sh
 #
-set -euo pipefail
+# -E (errtrace) é obrigatório aqui: sem ele, `trap rollback ERR` não é herdado por chamadas de
+# função (wait_bff_health, test_authentication_redirect etc.) — uma falha dentro delas encerra
+# o script via -e mas NUNCA dispara o rollback. Achado ao testar o script de verdade em WSL.
+set -Eeuo pipefail
 
 # ---------------------------------------------------------------------------
 # 1. Entrada (env vars) + defaults
@@ -38,9 +41,13 @@ SSL_CERT_PATH="${SSL_CERT_PATH:-}"
 SSL_CERT_KEY_PATH="${SSL_CERT_KEY_PATH:-}"
 
 log() { printf '[deploy-linux] %s\n' "$*" >&2; }
+# Usa `return`, não `exit`: o builtin `exit` nunca dispara `trap ... ERR`, então um `exit 1`
+# aqui pularia o rollback automático em toda falha de validação/health-check/smoke-test — só
+# `return 1` (como último comando de um `cmd || fail ...`) aciona a trap e ainda encerra o
+# script via `set -e`, já que essa é a exceção documentada para o comando final de uma lista.
 fail() {
   printf '[deploy-linux] ERRO: %s\n' "$*" >&2
-  exit 1
+  return 1
 }
 
 # ---------------------------------------------------------------------------
@@ -260,9 +267,8 @@ test_authentication_redirect() {
 
   local status_line
   status_line="$(printf '%s' "$headers" | head -n1 | tr -d '\r')"
-  if [[ "$status_line" != *" 302"* ]]; then
-    fail "O login Microsoft retornou '$status_line', esperado 302."
-  fi
+  [[ "$status_line" == *" 302"* ]] \
+    || fail "O login Microsoft retornou '$status_line', esperado 302."
 
   local location
   location="$(printf '%s' "$headers" | grep -i '^location:' | head -n1 | cut -d' ' -f2- | tr -d '\r\n')"
@@ -277,9 +283,8 @@ test_authentication_redirect() {
   redirect_uri="$(printf '%b' "${redirect_uri//%/\\x}")"
 
   local expected_redirect_uri="${PUBLIC_ORIGIN}/auth/callback"
-  if [[ "$redirect_uri" != "$expected_redirect_uri" ]]; then
-    fail "OIDC redirect_uri incorreta: '$redirect_uri'; esperado '$expected_redirect_uri'."
-  fi
+  [[ "$redirect_uri" == "$expected_redirect_uri" ]] \
+    || fail "OIDC redirect_uri incorreta: '$redirect_uri'; esperado '$expected_redirect_uri'."
 }
 
 rollback() {

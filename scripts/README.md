@@ -1,6 +1,6 @@
 # scripts/
 
-Scripts de deploy e utilitários de build do LayoutParser React.
+Scripts de deploy e utilitários de build do layoutparser-portal.
 
 | Script                          | Papel                                                                             |
 | -------------------------------- | ---------------------------------------------------------------------------------- |

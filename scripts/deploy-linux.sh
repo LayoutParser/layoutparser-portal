@@ -13,6 +13,14 @@
 #      ADMIN_USERS=... ENTRA_TENANT_ID=... ENTRA_CLIENT_ID=... ENTRA_CLIENT_SECRET=... \
 #      SSL_CERT_PATH=... SSL_CERT_KEY_PATH=... ./scripts/deploy-linux.sh
 #
+# SSL_CERT_PATH / SSL_CERT_KEY_PATH: este script apenas CONSOME um certificado já emitido
+# externamente — não gerencia certbot nem qualquer CA. Em produção real (Let's Encrypt via
+# DNS-01), aponte esses caminhos para /etc/letsencrypt/live/<PUBLIC_HOST>/fullchain.pem e
+# privkey.pem (o certbot atualiza esses arquivos in-place a cada renovação, então o caminho
+# permanece estável entre deploys) e configure um systemd timer ou cron externo chamando
+# `certbot renew --deploy-hook "nginx -t && systemctl reload nginx"`. Em dev-local, mkcert é uma
+# opção válida, mas não é a única — ver `deploy/README-certbot.md` para o procedimento completo.
+#
 # -E (errtrace) é obrigatório aqui: sem ele, `trap rollback ERR` não é herdado por chamadas de
 # função (wait_bff_health, test_authentication_redirect etc.) — uma falha dentro delas encerra
 # o script via -e mas NUNCA dispara o rollback. Achado ao testar o script de verdade em WSL.
@@ -87,8 +95,10 @@ fi
 [[ "$KEEP_RELEASES" =~ ^[0-9]+$ && "$KEEP_RELEASES" -ge 2 && "$KEEP_RELEASES" -le 20 ]] \
   || fail 'KEEP_RELEASES deve estar entre 2 e 20.'
 
-[[ -n "$SSL_CERT_PATH" ]] || fail 'SSL_CERT_PATH é obrigatória (certificado gerado via mkcert).'
-[[ -n "$SSL_CERT_KEY_PATH" ]] || fail 'SSL_CERT_KEY_PATH é obrigatória (chave gerada via mkcert).'
+[[ -n "$SSL_CERT_PATH" ]] \
+  || fail 'SSL_CERT_PATH é obrigatória (certificado válido para PUBLIC_HOST — Let'"'"'s Encrypt em produção, mkcert opcional em dev-local).'
+[[ -n "$SSL_CERT_KEY_PATH" ]] \
+  || fail 'SSL_CERT_KEY_PATH é obrigatória (chave privada correspondente ao certificado).'
 [[ -f "$SSL_CERT_PATH" ]] || fail "SSL_CERT_PATH não existe: $SSL_CERT_PATH"
 [[ -f "$SSL_CERT_KEY_PATH" ]] || fail "SSL_CERT_KEY_PATH não existe: $SSL_CERT_KEY_PATH"
 
@@ -326,7 +336,7 @@ render_nginx_site() {
 # único lugar de lógica de deploy, igual ao papel que Deploy-Iis.ps1 cumpre hoje sozinho. Requer
 # uma regra sudoers NOPASSWD restrita a `nginx -t` e `systemctl reload nginx` (ver plano de
 # migração, seção 1.5) — nunca sudo irrestrito.
-NGINX_TEMPLATE="$(dirname -- "${BASH_SOURCE[0]}")/../deploy/nginx/dev-local.conf.template"
+NGINX_TEMPLATE="$(dirname -- "${BASH_SOURCE[0]}")/../deploy/nginx/site.conf.template"
 if [[ -f "$NGINX_TEMPLATE" ]] && command -v nginx >/dev/null 2>&1; then
   NGINX_SITE_AVAILABLE="/etc/nginx/sites-available/${SITE_NAME}.conf"
   NGINX_SITE_ENABLED="/etc/nginx/sites-enabled/${SITE_NAME}.conf"

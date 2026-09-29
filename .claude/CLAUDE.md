@@ -17,11 +17,11 @@ arquivo **TXT** (+ opcionalmente um **layout XML**); a **API .NET** processa e d
 como **árvore de estrutura**. Nenhuma regra de parsing roda aqui: o BFF aplica a fronteira web
 (autenticação, autorização, limites e proxy), enquanto a API é o hub/fonte da verdade do domínio:
 
-| Repo                           | Papel                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| **LayoutParserApi**            | API .NET 10. Orquestra parse, cache, IA, transformação. Fonte da verdade. |
-| **LayoutParserLib**            | Criptografia Sysmiddle (DLL).                                             |
-| **LayoutParserDecrypt**        | `.exe` de descriptografia.                                                |
+| Repo                             | Papel                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| **LayoutParserApi**              | API .NET 10. Orquestra parse, cache, IA, transformação. Fonte da verdade. |
+| **LayoutParserLib**              | Criptografia Sysmiddle (DLL).                                             |
+| **LayoutParserDecrypt**          | `.exe` de descriptografia.                                                |
 | **layoutparser-portal** _(este)_ | Front-end Vite + React e BFF Node/Fastify em `server/`.                   |
 
 Contexto completo: [`README.md`](../README.md). Contrato consumido: [`src/types/api.ts`](../src/types/api.ts).

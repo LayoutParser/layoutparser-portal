@@ -13,13 +13,12 @@
 #      ADMIN_USERS=... ENTRA_TENANT_ID=... ENTRA_CLIENT_ID=... ENTRA_CLIENT_SECRET=... \
 #      SSL_CERT_PATH=... SSL_CERT_KEY_PATH=... ./scripts/deploy-linux.sh
 #
-# SSL_CERT_PATH / SSL_CERT_KEY_PATH: este script apenas CONSOME um certificado já emitido
-# externamente — não gerencia certbot nem qualquer CA. Em produção real (Let's Encrypt via
-# DNS-01), aponte esses caminhos para /etc/letsencrypt/live/<PUBLIC_HOST>/fullchain.pem e
-# privkey.pem (o certbot atualiza esses arquivos in-place a cada renovação, então o caminho
-# permanece estável entre deploys) e configure um systemd timer ou cron externo chamando
-# `certbot renew --deploy-hook "nginx -t && systemctl reload nginx"`. Em dev-local, mkcert é uma
-# opção válida, mas não é a única — ver `deploy/README-certbot.md` para o procedimento completo.
+# SSL_CERT_PATH / SSL_CERT_KEY_PATH: este script apenas CONSOME um certificado já existente —
+# não gera, instala nem gerencia nenhuma CA. Aceita qualquer certificado válido para
+# PUBLIC_HOST, incluindo self-signed (decisão de produção: certificado self-signed gerado
+# localmente no host Linux via `openssl req -x509`, já que o acesso é restrito à VPN e nunca
+# houve necessidade de CA pública — nem na produção Windows/IIS atual). Ver
+# `deploy/README-tls.md` para o procedimento completo de geração e renovação manual.
 #
 # -E (errtrace) é obrigatório aqui: sem ele, `trap rollback ERR` não é herdado por chamadas de
 # função (wait_bff_health, test_authentication_redirect etc.) — uma falha dentro delas encerra
@@ -96,7 +95,7 @@ fi
   || fail 'KEEP_RELEASES deve estar entre 2 e 20.'
 
 [[ -n "$SSL_CERT_PATH" ]] \
-  || fail 'SSL_CERT_PATH é obrigatória (certificado válido para PUBLIC_HOST — Let'"'"'s Encrypt em produção, mkcert opcional em dev-local).'
+  || fail 'SSL_CERT_PATH é obrigatória (qualquer certificado válido para PUBLIC_HOST — self-signed local aceito, ver deploy/README-tls.md).'
 [[ -n "$SSL_CERT_KEY_PATH" ]] \
   || fail 'SSL_CERT_KEY_PATH é obrigatória (chave privada correspondente ao certificado).'
 [[ -f "$SSL_CERT_PATH" ]] || fail "SSL_CERT_PATH não existe: $SSL_CERT_PATH"

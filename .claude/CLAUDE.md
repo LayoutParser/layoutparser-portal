@@ -1,4 +1,4 @@
-# CLAUDE.md — LayoutParser React (Front-end)
+# CLAUDE.md — layoutparser-portal (Front-end)
 
 Este arquivo configura o comportamento do Claude Code ao trabalhar neste repositório.
 Inspirado no harness **AIOX**, alinhado ao harness da **LayoutParserApi**, porém **enxuto e
@@ -17,12 +17,12 @@ arquivo **TXT** (+ opcionalmente um **layout XML**); a **API .NET** processa e d
 como **árvore de estrutura**. Nenhuma regra de parsing roda aqui: o BFF aplica a fronteira web
 (autenticação, autorização, limites e proxy), enquanto a API é o hub/fonte da verdade do domínio:
 
-| Repo                           | Papel                                                                     |
-| ------------------------------ | ------------------------------------------------------------------------- |
-| **LayoutParserApi**            | API .NET 10. Orquestra parse, cache, IA, transformação. Fonte da verdade. |
-| **LayoutParserLib**            | Criptografia Sysmiddle (DLL).                                             |
-| **LayoutParserDecrypt**        | `.exe` de descriptografia.                                                |
-| **LayoutParserReact** _(este)_ | Front-end Vite + React e BFF Node/Fastify em `server/`.                   |
+| Repo                             | Papel                                                                     |
+| -------------------------------- | ------------------------------------------------------------------------- |
+| **LayoutParserApi**              | API .NET 10. Orquestra parse, cache, IA, transformação. Fonte da verdade. |
+| **LayoutParserLib**              | Criptografia Sysmiddle (DLL).                                             |
+| **LayoutParserDecrypt**          | `.exe` de descriptografia.                                                |
+| **layoutparser-portal** _(este)_ | Front-end Vite + React e BFF Node/Fastify em `server/`.                   |
 
 Contexto completo: [`README.md`](../README.md). Contrato consumido: [`src/types/api.ts`](../src/types/api.ts).
 
@@ -142,4 +142,4 @@ da API. **Gestão de MCP é exclusiva do `@lp-devops`**. Regras: [`rules/mcp-usa
 
 ---
 
-_LayoutParser React · Claude Code harness v1 · enxuto, focado em Vite/React/TS_
+_layoutparser-portal · Claude Code harness v1 · enxuto, focado em Vite/React/TS_

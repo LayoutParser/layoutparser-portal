@@ -198,6 +198,31 @@ describe('workspaceService', () => {
   });
 
   it.each([
+    { execute: true, explain: true, author: true, compile: false, publish: false },
+    { execute: true, explain: true, author: false, compile: true, publish: false },
+    { execute: true, explain: true, author: false, compile: false, publish: true },
+  ])('falha fechado quando Sysmiddle anuncia mutação em %o', async capabilities => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        mappingId: 'mapper-sysmiddle',
+        version: 'current',
+        engine: 'sysmiddle',
+        capabilities,
+        sourceSchema: null,
+        targetSchema: null,
+        rules: [],
+        description: null,
+        opaqueRuleCount: 0,
+        limitations: [],
+      },
+    });
+
+    await expect(
+      workspaceService.getMappingExplanation('workspace', 'mapper-sysmiddle', 'current')
+    ).rejects.toMatchObject({ kind: 'invalid_response' });
+  });
+
+  it.each([
     () => workspaceService.listAnalyses('', 'project', {}),
     () => workspaceService.listAnalyses('workspace', ' ', {}),
     () => workspaceService.getMappingExplanation('workspace', 'mapping', ''),

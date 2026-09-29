@@ -228,7 +228,7 @@ O ecossistema é dividido em quatro projetos:
 
 | Projeto                 | Responsabilidade                                                                |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| **LayoutParserReact**   | Este repositório: interface React e gateway Node/Fastify.                       |
+| **layoutparser-portal** | Este repositório: interface React e gateway Node/Fastify.                       |
 | **LayoutParserApi**     | API .NET que orquestra parsing, validação, catálogo, cache, IA e transformação. |
 | **LayoutParserLib**     | Biblioteca usada na integração com criptografia Sysmiddle.                      |
 | **LayoutParserDecrypt** | Processo auxiliar de descriptografia.                                           |
@@ -405,9 +405,8 @@ o `applicationHost.config` para acesso anônimo ao conteúdo e desativa
 para `login.microsoftonline.com`. Headers de identidade, cookies e `Authorization` enviados pelo
 navegador são removidos antes do proxy; somente a identidade validada pelo BFF é encaminhada à API.
 
-Os environments `development` e `production` são isolados pelo GitHub. Portanto, cadastre os
-três valores **separadamente em cada environment**, mesmo quando o conteúdo for igual. No
-environment `development`, configure exatamente:
+Os environments do GitHub são isolados. Cadastre os três valores no environment `production`
+(o `development` não é mais usado por workflow), configurando exatamente:
 
 ```text
 Variable ENTRA_TENANT_ID = common
@@ -415,11 +414,8 @@ Variable ENTRA_CLIENT_ID = 9ff4c9ba-1bab-414a-a6df-39ddce8f7425
 Secret   ENTRA_CLIENT_SECRET = <Value do secret, não o Secret ID>
 ```
 
-Repita a mesma configuração em `production`. Variáveis ou secrets criados somente em
-`production` não ficam disponíveis ao workflow `ci-dev.yml`; nesse caso o deploy de
-desenvolvimento falha deliberadamente antes de alterar o IIS. Se o hostname de desenvolvimento
-for diferente do de produção, adicione também `https://<PUBLIC_HOST_DEV>/auth/callback` como URI
-de redirecionamento da plataforma **Web** no mesmo App Registration.
+Adicione `https://<PUBLIC_HOST>/auth/callback` como URI de redirecionamento da plataforma **Web** no
+App Registration.
 
 O servidor e os navegadores precisam alcançar `login.microsoftonline.com` por HTTPS. Políticas de
 um tenant corporativo externo ainda podem exigir consentimento administrativo para aplicativos
@@ -431,39 +427,17 @@ npm ci --prefix server
 npm run quality
 ```
 
-O workflow [`deploy.yml`](.github/workflows/deploy.yml) executa os gates, cria uma release
-versionada, publica o React, instala as dependências de produção do BFF, registra/reinicia seu
-processo em uma Scheduled Task do Windows, faz smoke tests e mantém rollback para a release
-anterior. O script [Deploy-Iis.ps1](scripts/Deploy-Iis.ps1) exige HTTPS e falha se URL Rewrite,
-ARR, OIDC, allowlists ou variáveis obrigatórias estiverem ausentes. Configure `PUBLIC_HOST` em produção
-e `PUBLIC_HOST_DEV` em desenvolvimento com o hostname DNS ou IP privado coberto pelo SAN do
-certificado, sem protocolo ou porta. O smoke test HTTPS também confirma que o login aponta para a
-Microsoft e que o `redirect_uri` coincide com essa origem. Os environments `development` e
-`production` devem exigir aprovação e isolar seus secrets/runners.
-
-No runner de desenvolvimento, o workflow instala o ARR 3 quando ele estiver ausente usando o
-instalador x64 oficial da Microsoft, com assinatura Authenticode e SHA-256 fixado verificados por
-[`Install-IisArr.ps1`](scripts/Install-IisArr.ps1). O instalador é compatível tanto com o Windows
-PowerShell 5.1 (`powershell.exe`) quanto com o PowerShell 7 (`pwsh`). Ele também migra o site de HTTP para HTTPS de
-forma idempotente com [`Initialize-IisDevHttps.ps1`](scripts/Initialize-IisDevHttps.ps1), usando um
-certificado válido para `PUBLIC_HOST_DEV` já instalado em `Cert:\LocalMachine\My`. O runner de
-produção continua exigindo ARR, site e binding HTTPS pré-provisionados para impedir alterações
-automáticas na infraestrutura produtiva.
-
-Quando o certificado de desenvolvimento é autoassinado, o bootstrap adiciona somente sua parte
-pública à raiz confiável da máquina após validar hostname, período de validade e chave privada. O
-workflow também força e verifica o checkout em LF sem alterar permanentemente a configuração Git
-do runner. A exceção de `safe.directory` usada nessa verificação é limitada ao workspace exato do
-job e não é persistida na conta do serviço. Em workspaces reutilizados, somente arquivos rastreados
-que o próprio Git identifica como CRLF indevido são normalizados, com validação posterior de diff.
-
-As etapas que manipulam o provider `IIS:\` usam o Windows PowerShell nativo (`powershell.exe`).
-Isso evita a sessão de compatibilidade do PowerShell 7, que importa os cmdlets de
-`WebAdministration`, mas não disponibiliza o drive `IIS:\` ao processo chamador.
-
-O executável Node usado pelo BFF é armazenado em `runtime/` com um nome derivado de seu SHA-256.
-Assim, uma atualização do Node cria um runtime imutável em vez de tentar sobrescrever o executável
-que ainda está aberto pelo BFF da release anterior.
+O workflow [`deploy.yml`](.github/workflows/deploy.yml) (produção, push em `main`) roda no runner
+Linux (`self-hosted, Linux, layoutparser-portal`), executa os gates e chama
+[deploy-linux.sh](scripts/deploy-linux.sh) (PM2 + Nginx, certificado self-signed do host), com
+releases versionadas, smoke tests e rollback. Não há mais ambiente de desenvolvimento automatizado: o
+workflow `ci-dev.yml` (Windows/IIS) foi removido. Os scripts PowerShell de IIS
+([`Deploy-Iis.ps1`](scripts/Deploy-Iis.ps1), [`Install-IisArr.ps1`](scripts/Install-IisArr.ps1),
+[`Initialize-IisDevHttps.ps1`](scripts/Initialize-IisDevHttps.ps1)) permanecem apenas como
+histórico/rollback e não são executados por nenhum workflow. Configure `PUBLIC_HOST` com o hostname
+DNS ou IP privado coberto pelo SAN do certificado, sem protocolo ou porta. O smoke test HTTPS também
+confirma que o login aponta para a Microsoft e que o `redirect_uri` coincide com essa origem. O
+environment `production` deve exigir aprovação e isolar seus secrets/runners.
 
 Nunca publique o front com `VITE_API_BASE_URL` apontando para uma origem interna. O build de
 produção foi desenhado para deixar essa variável vazia e usar `/api` na mesma origem HTTPS.
@@ -532,15 +506,11 @@ $env:REAL_E2E_LAYOUT_NAME = 'LAY_TXT_MQSERIES_ENVNFE_4.00_NFe'
 npm run test:e2e:real
 ```
 
-No runner Windows, a localização padrão persistente é
-`C:\ProgramData\LayoutParser\e2e-fixtures\mqseries`. O environment `development` pode sobrescrever
-o caminho e o layout pelas variables `REAL_E2E_FIXTURE_DIR` e `REAL_E2E_LAYOUT_NAME`. Screenshots,
+Localmente, o caminho e o layout podem ser definidos pelas variables `REAL_E2E_FIXTURE_DIR` e `REAL_E2E_LAYOUT_NAME`. Screenshots,
 vídeos e traces ficam desabilitados nessa suíte para que uma falha não publique dados privados.
 
-Em [`ci-dev.yml`](.github/workflows/ci-dev.yml), esse cenário roda imediatamente após a instalação
-das dependências. Se ele falhar, os quality gates seguintes, o build e o deploy de desenvolvimento
-não executam; consequentemente, a proteção de `main` não recebe o deployment ativo necessário para
-autorizar a promoção `develop → main`.
+O antigo `ci-dev.yml`, que executava esse cenário no runner Windows, foi removido; hoje a suíte real
+é executada apenas manualmente.
 
 ### Aceitação com o par MQSeries real
 
@@ -612,9 +582,9 @@ dependências diretamente para `main`.
 ### Política de promoção para produção
 
 O fluxo obrigatório é `feature/fix → develop → main`: toda mudança entra primeiro em `develop`,
-passa pelos quality gates e pelo deploy HTTPS no environment `development` e somente depois pode
+passa pelos quality gates e somente depois pode
 ser promovida para produção por um PR cuja origem seja exatamente `develop` e o destino seja
-`main`. A ruleset da `main` exige esse deploy de desenvolvimento bem-sucedido e os checks de
+`main`. A ruleset da `main` exige os checks de
 qualidade, segurança, dependências e origem definidos em
 [`main-promotion-guard.yml`](.github/workflows/main-promotion-guard.yml). Push direto, force-push e
 exclusão da `main` permanecem bloqueados, sem bypass administrativo.
@@ -627,7 +597,7 @@ exclusão da `main` permanecem bloqueados, sem bypass administrativo.
 ## Estrutura do repositório
 
 ```text
-LayoutParserReact/
+layoutparser-portal/
 ├── src/
 │   ├── components/       # upload, análise, XML, admin, autenticação e componentes compartilhados
 │   ├── layouts/          # shell e navegação

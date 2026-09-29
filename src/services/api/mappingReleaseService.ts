@@ -388,60 +388,6 @@ function parseRelease(value: unknown): MappingRelease {
   };
 }
 
-function parseGovernanceSnapshot(
-  value: unknown,
-  expectedStatus: MappingReleaseStatus
-): MappingGovernanceSnapshot {
-  if (
-    !isRecord(value) ||
-    !isNonEmptyString(value.releaseId) ||
-    !isNonEmptyString(value.workspaceId) ||
-    !isNonEmptyString(value.draftId) ||
-    !isNonEmptyString(value.engine) ||
-    !engines.has(value.engine as MappingAuthoringEngine) ||
-    !isNonEmptyString(value.status) ||
-    !releaseStatuses.has(value.status as MappingReleaseStatus) ||
-    !isNonEmptyString(value.environment) ||
-    !isNullableString(value.approvedByUserId) ||
-    !isNullableValidDate(value.approvedAt) ||
-    !isNullableString(value.approvalJustification) ||
-    !isNullableString(value.publishedByUserId) ||
-    !isNullableValidDate(value.publishedAt) ||
-    !isNullableString(value.previousPublishedReleaseId) ||
-    !isNonEmptyString(value.correlationId) ||
-    !isNonEmptyString(value.eTag)
-  ) {
-    throw invalidResponse();
-  }
-
-  const snapshot = value as unknown as MappingGovernanceSnapshot;
-  if (snapshot.status !== expectedStatus) throw invalidResponse();
-  if (
-    ['approved', 'published', 'deprecated'].includes(snapshot.status) &&
-    (!snapshot.approvedByUserId || !snapshot.approvedAt || !snapshot.approvalJustification)
-  ) {
-    throw invalidResponse();
-  }
-  if (
-    ['published', 'deprecated'].includes(snapshot.status) &&
-    (!snapshot.publishedByUserId || !snapshot.publishedAt)
-  ) {
-    throw invalidResponse();
-  }
-  return snapshot;
-}
-
-function assertGovernanceResource(
-  snapshot: MappingGovernanceSnapshot,
-  workspaceId: string,
-  releaseId: string
-): MappingGovernanceSnapshot {
-  if (snapshot.workspaceId !== workspaceId.trim() || snapshot.releaseId !== releaseId.trim()) {
-    throw invalidResponse();
-  }
-  return snapshot;
-}
-
 function parseReleaseSummary(value: unknown): MappingReleaseSummary {
   if (
     !isRecord(value) ||
@@ -586,6 +532,60 @@ function parseReleaseDiff(value: unknown): MappingReleaseDiff {
     toReleaseId: value.toReleaseId,
     changes: value.changes.map(parseDiffChange),
   };
+}
+
+function parseGovernanceSnapshot(
+  value: unknown,
+  expectedStatus: MappingReleaseStatus
+): MappingGovernanceSnapshot {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.releaseId) ||
+    !isNonEmptyString(value.workspaceId) ||
+    !isNonEmptyString(value.draftId) ||
+    !isNonEmptyString(value.engine) ||
+    !engines.has(value.engine as MappingAuthoringEngine) ||
+    !isNonEmptyString(value.status) ||
+    !releaseStatuses.has(value.status as MappingReleaseStatus) ||
+    !isNonEmptyString(value.environment) ||
+    !isNullableString(value.approvedByUserId) ||
+    !isNullableValidDate(value.approvedAt) ||
+    !isNullableString(value.approvalJustification) ||
+    !isNullableString(value.publishedByUserId) ||
+    !isNullableValidDate(value.publishedAt) ||
+    !isNullableString(value.previousPublishedReleaseId) ||
+    !isNonEmptyString(value.correlationId) ||
+    !isNonEmptyString(value.eTag)
+  ) {
+    throw invalidResponse();
+  }
+
+  const snapshot = value as unknown as MappingGovernanceSnapshot;
+  if (snapshot.status !== expectedStatus) throw invalidResponse();
+  if (
+    ['approved', 'published', 'deprecated'].includes(snapshot.status) &&
+    (!snapshot.approvedByUserId || !snapshot.approvedAt || !snapshot.approvalJustification)
+  ) {
+    throw invalidResponse();
+  }
+  if (
+    ['published', 'deprecated'].includes(snapshot.status) &&
+    (!snapshot.publishedByUserId || !snapshot.publishedAt)
+  ) {
+    throw invalidResponse();
+  }
+  return snapshot;
+}
+
+function assertGovernanceResource(
+  snapshot: MappingGovernanceSnapshot,
+  workspaceId: string,
+  releaseId: string
+): MappingGovernanceSnapshot {
+  if (snapshot.workspaceId !== workspaceId.trim() || snapshot.releaseId !== releaseId.trim()) {
+    throw invalidResponse();
+  }
+  return snapshot;
 }
 
 function parseJob(value: unknown): MappingCompileJob {

@@ -26,6 +26,7 @@
 
 - [Loop de login em produção — Set-Cookie ausente (2026-09-15)](project_login_loop_setcookie_investigation_2026_09_15.md) — revisão de código/config sem achar bug; causa raiz não confirmada por falta de acesso ao host de produção.
 - [Fronteira de credencial do agente](feedback_agent_credential_boundary_crossing.md) — não contornar falta de SSH/RDP/WinRM via interop Windows sem confirmar com o usuário.
+- [DuckDNS + cert strategy (2026-09-29, corrigido)](project_duckdns_cert_strategy_2026_09_29.md) — host é VPN-only, logo HTTP-01 é inviável; usar DNS-01 via API nativa TXT do DuckDNS (hooks manuais).
 - [MQSeries e2e 504 recorrente (2026-09-21)](project_mqseries_e2e_504_recurrence_watch_2026_09_21.md) — mqseries-user-flow.spec.ts:148 já falhou 2x por 504 em ~3h (PRs #284 e #287); rerun resolveu ambas; na 3ª ocorrência, investigar timeout/capacidade real em vez de assumir flake.
 
 Arquitetura vigente: front same-origin; IIS HTTPS anônimo encaminha `/auth` e `/api` → BFF Node

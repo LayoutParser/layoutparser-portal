@@ -4,16 +4,14 @@
 # /etc/nginx/sites-available/<SITE_NAME>.conf (com symlink em sites-enabled/). Não editar
 # manualmente o arquivo gerado — ajuste este template e rode o deploy novamente.
 #
-# Renovação de certificado: ver deploy/README-certbot.md para o procedimento esperado quando
-# SSL_CERT_PATH/SSL_CERT_KEY_PATH vierem do Let's Encrypt (certbot renew + reload do Nginx).
+# Certificado: self-signed gerado localmente no host (openssl). Geração e renovação manual
+# (com reload do Nginx): ver deploy/README-tls.md.
 
 server {
     listen 443 ssl http2;
     server_name __PUBLIC_HOST__;
 
-    # Certificado válido para o host: Let's Encrypt em produção (ex.: caminho estável em
-    # /etc/letsencrypt/live/<host>/) ou mkcert opcionalmente em dev-local — ver
-    # deploy/README-certbot.md para o procedimento de renovação automática.
+    # Certificado self-signed do host (ex.: /etc/ssl/layoutparser/) — ver deploy/README-tls.md.
     ssl_certificate     __SSL_CERT_PATH__;
     ssl_certificate_key __SSL_CERT_KEY_PATH__;
 

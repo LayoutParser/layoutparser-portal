@@ -228,7 +228,7 @@ O ecossistema é dividido em quatro projetos:
 
 | Projeto                 | Responsabilidade                                                                |
 | ----------------------- | ------------------------------------------------------------------------------- |
-| **layoutparser-portal**   | Este repositório: interface React e gateway Node/Fastify.                       |
+| **layoutparser-portal** | Este repositório: interface React e gateway Node/Fastify.                       |
 | **LayoutParserApi**     | API .NET que orquestra parsing, validação, catálogo, cache, IA e transformação. |
 | **LayoutParserLib**     | Biblioteca usada na integração com criptografia Sysmiddle.                      |
 | **LayoutParserDecrypt** | Processo auxiliar de descriptografia.                                           |
@@ -431,7 +431,10 @@ npm ci --prefix server
 npm run quality
 ```
 
-O workflow [`deploy.yml`](.github/workflows/deploy.yml) executa os gates, cria uma release
+O workflow [`deploy.yml`](.github/workflows/deploy.yml) (produção, push em `main`) roda no runner
+Linux (`self-hosted, Linux, layoutparser-portal`), executa os gates e chama
+[deploy-linux.sh](scripts/deploy-linux.sh) (PM2 + Nginx, certificado self-signed do host). O
+desenvolvimento (`ci-dev.yml`) continua no Windows/IIS: o workflow executa os gates, cria uma release
 versionada, publica o React, instala as dependências de produção do BFF, registra/reinicia seu
 processo em uma Scheduled Task do Windows, faz smoke tests e mantém rollback para a release
 anterior. O script [Deploy-Iis.ps1](scripts/Deploy-Iis.ps1) exige HTTPS e falha se URL Rewrite,

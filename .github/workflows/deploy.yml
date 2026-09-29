@@ -17,16 +17,16 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
     name: Produção HTTPS (React + BFF)
-    runs-on: [self-hosted, windows, production]
+    runs-on: [self-hosted, Linux, layoutparser-portal]
     timeout-minutes: 60
     environment:
       name: production
     env:
-      GIT_CONFIG_COUNT: '2'
-      GIT_CONFIG_KEY_0: core.autocrlf
-      GIT_CONFIG_VALUE_0: 'false'
-      GIT_CONFIG_KEY_1: core.eol
-      GIT_CONFIG_VALUE_1: lf
+      # Valores não secretos do host Linux de produção (Node/PM2/Nginx). Ajuste aqui se mudarem.
+      DEPLOY_ROOT: /opt/layoutparser
+      SITE_NAME: layoutparser
+      SSL_CERT_PATH: /etc/ssl/layoutparser/fullchain.pem
+      SSL_CERT_KEY_PATH: /etc/ssl/layoutparser/privkey.pem
 
     steps:
       - name: Checkout
@@ -34,55 +34,6 @@ jobs:
         with:
           fetch-depth: 1
           persist-credentials: false
-
-      - name: Normalizar fim de linha do workspace
-        shell: powershell
-        run: |
-          $lineEndingViolations = @(
-            git -c "safe.directory=$env:GITHUB_WORKSPACE" ls-files --eol |
-              Where-Object { $_ -match '\bw/crlf\b.*\beol=lf\b' }
-          )
-          if ($LASTEXITCODE -ne 0) { throw 'Não foi possível validar os finais de linha do workspace.' }
-
-          $workspaceRoot = [System.IO.Path]::GetFullPath($env:GITHUB_WORKSPACE)
-          $workspacePrefix = $workspaceRoot.TrimEnd([System.IO.Path]::DirectorySeparatorChar) +
-            [System.IO.Path]::DirectorySeparatorChar
-          foreach ($violation in $lineEndingViolations) {
-            $columns = $violation -split "`t", 2
-            if ($columns.Count -ne 2) { throw "Saída inesperada de git ls-files --eol: $violation" }
-
-            $relativePath = $columns[1]
-            $fullPath = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot $relativePath))
-            if (
-              -not $fullPath.StartsWith($workspacePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
-              -not (Test-Path -LiteralPath $fullPath -PathType Leaf)
-            ) {
-              throw "Arquivo de normalização fora do workspace: $relativePath"
-            }
-
-            $bytes = [System.IO.File]::ReadAllBytes($fullPath)
-            $normalizedBytes = New-Object System.Collections.Generic.List[byte]
-            for ($index = 0; $index -lt $bytes.Length; $index++) {
-              if ($bytes[$index] -eq 13 -and $index + 1 -lt $bytes.Length -and $bytes[$index + 1] -eq 10) {
-                continue
-              }
-              $normalizedBytes.Add($bytes[$index])
-            }
-            [System.IO.File]::WriteAllBytes($fullPath, $normalizedBytes.ToArray())
-          }
-
-          $remainingViolations = @(
-            git -c "safe.directory=$env:GITHUB_WORKSPACE" ls-files --eol |
-              Where-Object { $_ -match '\bw/crlf\b.*\beol=lf\b' }
-          )
-          if ($LASTEXITCODE -ne 0) { throw 'Não foi possível verificar a normalização do workspace.' }
-          if ($remainingViolations.Count -gt 0) {
-            $remainingViolations | Write-Host
-            throw 'O checkout ainda contém arquivos CRLF que deveriam estar em LF.'
-          }
-
-          git -c "safe.directory=$env:GITHUB_WORKSPACE" diff --exit-code --
-          if ($LASTEXITCODE -ne 0) { throw 'A normalização alterou o conteúdo versionado.' }
 
       - name: Setup Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -94,26 +45,26 @@ jobs:
             server/package-lock.json
 
       - name: Instalar dependências reproduzíveis
-        shell: powershell
+        shell: bash
         run: |
+          set -euo pipefail
           npm ci
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci do front falhou.' }
           npm ci --prefix server
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci do BFF falhou.' }
 
+      # `npm run quality` não executa E2E (Playwright), então não precisa instalar Chromium aqui.
       - name: Quality gates e builds
-        shell: powershell
+        shell: bash
         env:
           VITE_API_BASE_URL: ''
         run: |
+          set -euo pipefail
           npm run quality
-          if ($LASTEXITCODE -ne 0) { throw 'Quality gates falharam.' }
+          test -d dist || { echo 'dist/ não foi gerado.'; exit 1; }
+          test -d server/dist || { echo 'server/dist/ não foi gerado.'; exit 1; }
 
-      - name: Publicar release e reiniciar o BFF
-        shell: powershell
+      - name: Publicar release e reiniciar o BFF (PM2 + Nginx)
+        shell: bash
         env:
-          DEPLOY_ROOT: ${{ secrets.DEPLOY_PATH }}
-          IIS_SITE_NAME: ${{ vars.IIS_SITE_NAME }}
           PUBLIC_HOST: ${{ vars.PUBLIC_HOST }}
           LAYOUTPARSER_API_URL: ${{ vars.LAYOUTPARSER_API_URL }}
           BFF_ADMIN_USERS: ${{ secrets.BFF_ADMIN_USERS }}
@@ -125,26 +76,32 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BFF_DNS_SERVERS: ${{ vars.BFF_DNS_SERVERS }}
         run: |
-          if ([string]::IsNullOrWhiteSpace($env:DEPLOY_ROOT)) { throw 'Secret DEPLOY_PATH ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:IIS_SITE_NAME)) { throw 'Variable IIS_SITE_NAME ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:PUBLIC_HOST)) { throw 'Variable PUBLIC_HOST ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:LAYOUTPARSER_API_URL)) { throw 'Variable LAYOUTPARSER_API_URL ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:ENTRA_TENANT_ID)) { throw 'Variable ENTRA_TENANT_ID ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:ENTRA_CLIENT_ID)) { throw 'Variable ENTRA_CLIENT_ID ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:ENTRA_CLIENT_SECRET)) { throw 'Secret ENTRA_CLIENT_SECRET ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_ID)) { throw 'Variable GOOGLE_CLIENT_ID ausente.' }
-          if ([string]::IsNullOrWhiteSpace($env:GOOGLE_CLIENT_SECRET)) { throw 'Secret GOOGLE_CLIENT_SECRET ausente.' }
+          set -euo pipefail
+          require() {
+            local kind="$1" name="$2"
+            if [[ -z "${!name// }" ]]; then
+              echo "::error::$kind $name ausente."
+              exit 1
+            fi
+          }
+          require Variable PUBLIC_HOST
+          require Variable LAYOUTPARSER_API_URL
+          require Variable ENTRA_TENANT_ID
+          require Variable ENTRA_CLIENT_ID
+          require Secret ENTRA_CLIENT_SECRET
+          require Variable GOOGLE_CLIENT_ID
+          require Secret GOOGLE_CLIENT_SECRET
+          if [[ -z "${BFF_ADMIN_USERS// }" && -z "${BFF_ADMIN_ROLES// }" ]]; then
+            echo '::error::Configure o secret BFF_ADMIN_USERS e/ou BFF_ADMIN_ROLES.'
+            exit 1
+          fi
 
-          & ./scripts/Deploy-Iis.ps1 `
-            -DeployRoot $env:DEPLOY_ROOT `
-            -SiteName $env:IIS_SITE_NAME `
-            -PublicHost $env:PUBLIC_HOST `
-            -UpstreamUrl $env:LAYOUTPARSER_API_URL `
-            -AdminUsers $env:BFF_ADMIN_USERS `
-            -AdminRoles $env:BFF_ADMIN_ROLES `
-            -EntraTenantId $env:ENTRA_TENANT_ID `
-            -EntraClientId $env:ENTRA_CLIENT_ID `
-            -EntraClientSecret $env:ENTRA_CLIENT_SECRET `
-            -GoogleClientId $env:GOOGLE_CLIENT_ID `
-            -GoogleClientSecret $env:GOOGLE_CLIENT_SECRET `
-            -DnsServers $env:BFF_DNS_SERVERS
+          # Mapeia os nomes do GitHub para o contrato de env do script.
+          export UPSTREAM_URL="$LAYOUTPARSER_API_URL"
+          export ADMIN_USERS="$BFF_ADMIN_USERS"
+          export ADMIN_ROLES="$BFF_ADMIN_ROLES"
+          export DNS_SERVERS="$BFF_DNS_SERVERS"
+          export FRONTEND_SOURCE=dist
+          export SERVER_SOURCE=server
+
+          bash ./scripts/deploy-linux.sh

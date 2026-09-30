@@ -314,17 +314,16 @@ function parseNullableFiscalProfile(value: unknown): FiscalProfile | null {
 function parseResolvedXsd(value: unknown): ResolvedXsdReference {
   if (
     !isRecord(value) ||
-    !isNonEmptyString(value.documentType) ||
-    !fiscalDocumentTypes.has(value.documentType as FiscalDocumentType) ||
-    !isNonEmptyString(value.schemaVersion) ||
-    !isNonEmptyString(value.xsdPath)
+    !isNonEmptyString(value.xsdVersion) ||
+    !isNonEmptyString(value.namespace) ||
+    !isNonEmptyString(value.rootElement)
   ) {
     throw invalidResponse();
   }
   return {
-    documentType: value.documentType as FiscalDocumentType,
-    schemaVersion: value.schemaVersion,
-    xsdPath: value.xsdPath,
+    xsdVersion: value.xsdVersion,
+    namespace: value.namespace,
+    rootElement: value.rootElement,
   };
 }
 

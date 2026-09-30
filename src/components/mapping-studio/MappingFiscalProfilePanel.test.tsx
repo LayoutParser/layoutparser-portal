@@ -64,7 +64,11 @@ describe('MappingFiscalProfilePanel', () => {
         operation: 'saida',
         jurisdiction: null,
       },
-      resolvedXsd: { documentType: 'nfe', schemaVersion: '4.00', xsdPath: '/xsd/nfe/4.00.xsd' },
+      resolvedXsd: {
+        xsdVersion: 'PL_009_V4',
+        namespace: 'http://www.portalfiscal.inf.br/nfe',
+        rootElement: 'nfeProc',
+      },
     };
     vi.mocked(mappingDraftService.setFiscalProfile).mockResolvedValue(updatedDraft);
     const onDraftChange = vi.fn();
@@ -121,7 +125,11 @@ describe('MappingFiscalProfilePanel', () => {
         operation: 'saida',
         jurisdiction: null,
       },
-      resolvedXsd: { documentType: 'nfe', schemaVersion: '4.00', xsdPath: '/xsd/nfe/4.00.xsd' },
+      resolvedXsd: {
+        xsdVersion: 'PL_009_V4',
+        namespace: 'http://www.portalfiscal.inf.br/nfe',
+        rootElement: 'nfeProc',
+      },
     };
 
     render(
@@ -132,7 +140,7 @@ describe('MappingFiscalProfilePanel', () => {
       />
     );
 
-    expect(screen.getByText('/xsd/nfe/4.00.xsd')).toBeVisible();
-    expect(screen.getByText('NFE · 4.00')).toBeVisible();
+    expect(screen.getByText('PL_009_V4')).toBeVisible();
+    expect(screen.getByText('nfeProc')).toBeVisible();
   });
 });

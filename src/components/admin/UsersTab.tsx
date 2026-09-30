@@ -35,6 +35,9 @@ const UsersTab = () => {
   const workspace = useWorkspaceStore(state =>
     state.workspaces.find(item => item.workspaceId === state.activeWorkspaceId)
   );
+  const workspaceStatus = useWorkspaceStore(state => state.status);
+  const workspaceError = useWorkspaceStore(state => state.error);
+  const loadWorkspaces = useWorkspaceStore(state => state.loadWorkspaces);
   const store = useWorkspaceMembersStore();
   const { status, members, error, unavailable, actionError, notice, busy } = store;
 
@@ -48,6 +51,12 @@ const UsersTab = () => {
   const isPersonal = workspace?.kind === 'personal';
   const loadMembers = useWorkspaceMembersStore(state => state.loadMembers);
 
+  // O MainLayout só carrega os workspaces em /workspace; em /admin a aba precisa pedi-los
+  // sozinha (a chamada é idempotente: ignora se já estiver carregando ou pronto).
+  useEffect(() => {
+    void loadWorkspaces();
+  }, [loadWorkspaces]);
+
   useEffect(() => {
     if (workspaceId && !isPersonal) {
       void loadMembers(workspaceId);
@@ -57,10 +66,19 @@ const UsersTab = () => {
   const title = workspace ? `Usuários de ${workspace.name}` : 'Usuários';
 
   if (!workspace) {
+    const loadingWorkspaces = workspaceStatus === 'idle' || workspaceStatus === 'loading';
     return (
-      <section className="users-tab" aria-labelledby="users-tab-title">
+      <section
+        className="users-tab"
+        aria-labelledby="users-tab-title"
+        aria-busy={loadingWorkspaces}
+      >
         <h2 id="users-tab-title">{title}</h2>
-        <p>Nenhum workspace ativo.</p>
+        {loadingWorkspaces && <p>Carregando workspaces…</p>}
+        {workspaceStatus === 'error' && (
+          <p role="alert">{workspaceError ?? 'Não foi possível carregar os workspaces.'}</p>
+        )}
+        {workspaceStatus === 'ready' && <p>Nenhum workspace ativo.</p>}
       </section>
     );
   }

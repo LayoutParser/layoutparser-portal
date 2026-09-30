@@ -5,6 +5,7 @@ import {
   MemberRequestError,
   workspaceMemberService,
 } from '../../services/api/workspaceMemberService';
+import { workspaceService } from '../../services/api/workspaceService';
 import { useWorkspaceMembersStore } from '../../store/useWorkspaceMembersStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import type { WorkspaceMember } from '../../types/member';
@@ -24,7 +25,12 @@ vi.mock('../../services/api/workspaceMemberService', async importOriginal => ({
   },
 }));
 
+vi.mock('../../services/api/workspaceService', () => ({
+  workspaceService: { getCurrentWorkspaces: vi.fn() },
+}));
+
 const service = vi.mocked(workspaceMemberService);
+const workspaces = vi.mocked(workspaceService);
 const owner: WorkspaceMember = {
   userId: 'o1',
   displayName: 'Dona',
@@ -61,8 +67,38 @@ function seedWorkspace(kind: 'personal' | 'organization') {
 describe('UsersTab', () => {
   beforeEach(() => {
     Object.values(service).forEach(fn => fn.mockReset());
+    workspaces.getCurrentWorkspaces.mockReset();
     useWorkspaceStore.getState().reset();
     useWorkspaceMembersStore.getState().reset();
+  });
+
+  it('pede os workspaces sozinha quando o store ainda não foi carregado (rota /admin)', async () => {
+    workspaces.getCurrentWorkspaces.mockResolvedValue({
+      activeWorkspaceId: 'w1',
+      workspaces: [
+        {
+          workspaceId: 'w1',
+          name: 'Time Fiscal',
+          kind: 'team',
+          role: 'owner',
+          createdAt: '2026-09-30T12:00:00Z',
+        },
+      ],
+    });
+    service.listMembers.mockResolvedValue([owner]);
+    render(<UsersTab />);
+
+    expect(screen.getByText('Carregando workspaces…')).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Usuários de Time Fiscal' })).toBeVisible();
+    expect(workspaces.getCurrentWorkspaces).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(service.listMembers).toHaveBeenCalledWith('w1'));
+  });
+
+  it('mostra erro quando os workspaces não carregam', async () => {
+    workspaces.getCurrentWorkspaces.mockRejectedValue(new Error('Falha ao carregar.'));
+    render(<UsersTab />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha ao carregar.');
   });
 
   it('carrega e lista membros com status em texto', async () => {

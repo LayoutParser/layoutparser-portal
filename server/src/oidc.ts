@@ -30,6 +30,8 @@ export interface OidcExchangeRequest {
   readonly state: string;
   readonly nonce: string;
   readonly codeVerifier: string;
+  // Parâmetro `iss` (RFC 9207) devolvido no callback; o Google o anuncia como obrigatório.
+  readonly issuer?: string;
 }
 
 export interface OidcClient {
@@ -44,6 +46,7 @@ interface LoginQuery {
 interface CallbackQuery {
   code?: string;
   state?: string;
+  iss?: string;
   error?: string;
 }
 
@@ -392,6 +395,11 @@ class GoogleOidcClient implements OidcClient {
     const callbackUrl = new URL(this.#configuration.redirectUri);
     callbackUrl.searchParams.set('code', request.code);
     callbackUrl.searchParams.set('state', request.state);
+    // Sem o `iss`, o openid-client recusa a resposta quando o provedor anuncia
+    // `authorization_response_iss_parameter_supported` (caso do Google). A lib valida o valor.
+    if (request.issuer) {
+      callbackUrl.searchParams.set('iss', request.issuer);
+    }
 
     const startedAt = Date.now();
     try {
@@ -594,6 +602,9 @@ function registerProviderRoutes(
           state,
           nonce: transaction.nonce,
           codeVerifier: transaction.codeVerifier,
+          ...(typeof request.query.iss === 'string' && request.query.iss.length <= 2048
+            ? { issuer: request.query.iss }
+            : {}),
         });
         const returnTo = transaction.returnTo;
         request.session.set('identity', identity);

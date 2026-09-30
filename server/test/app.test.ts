@@ -263,7 +263,7 @@ describe('LayoutParser BFF', () => {
 
     const callback = await app.inject({
       method: 'GET',
-      url: `/auth/callback?code=test-code&state=${authorizationTransaction?.state}`,
+      url: `/auth/callback?code=test-code&state=${authorizationTransaction?.state}&iss=https%3A%2F%2Faccounts.google.com`,
       headers: { cookie: loginCookie },
     });
     const authenticatedCookie = String(callback.headers['set-cookie']).split(';', 1)[0];
@@ -275,6 +275,9 @@ describe('LayoutParser BFF', () => {
       state: authorizationTransaction?.state,
       nonce: authorizationTransaction?.nonce,
       codeVerifier: authorizationTransaction?.codeVerifier,
+      // Regressão: o `iss` (RFC 9207) do callback precisa chegar ao cliente OIDC; sem ele o
+      // openid-client recusa a resposta do Google.
+      issuer: 'https://accounts.google.com',
     });
 
     const session = await app.inject({

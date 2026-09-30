@@ -102,6 +102,12 @@ fi
 [[ -f "$SSL_CERT_KEY_PATH" ]] || fail "SSL_CERT_KEY_PATH não existe: $SSL_CERT_KEY_PATH"
 
 command -v pm2 >/dev/null 2>&1 || fail 'pm2 não encontrado no PATH.'
+
+# O runner do GitHub Actions marca os processos do job com RUNNER_TRACKING_ID e, ao fim,
+# mata como "órfão" todo processo que herdou essa variável. Como `pm2 start --update-env`
+# repassa o ambiente do job ao app, o BFF era morto no fim do deploy (~60 s de 502 até o
+# PM2 recriá-lo). Removê-la aqui vale para o deploy e para o rollback.
+unset RUNNER_TRACKING_ID
 command -v npm >/dev/null 2>&1 || fail 'npm não encontrado no PATH.'
 command -v curl >/dev/null 2>&1 || fail 'curl não encontrado no PATH.'
 
@@ -228,7 +234,7 @@ js_string_literal() {
   echo "    time: true,"
   echo "    max_restarts: 5,"
   echo "    min_uptime: '10s',"
-  echo "    restart_delay: 60000,"
+  echo "    restart_delay: 5000,"
   echo "    autorestart: true,"
   echo "  }]"
   echo "};"

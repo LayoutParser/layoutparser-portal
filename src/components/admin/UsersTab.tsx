@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { PERSONAL_MESSAGE } from '../../services/api/workspaceMemberService';
+import { ADMIN_USERS_PAGE_SIZE, useAdminDirectoryStore } from '../../store/useAdminDirectoryStore';
 import { useWorkspaceMembersStore } from '../../store/useWorkspaceMembersStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import type { AssignableMemberRole, MemberRole, WorkspaceMember } from '../../types/member';
@@ -31,10 +33,108 @@ function validateEmail(email: string): string | null {
   return null;
 }
 
+const KIND_LABELS: Record<string, string> = {
+  personal: 'pessoal',
+  team: 'time',
+  organization: 'organização',
+};
+
+interface TargetWorkspace {
+  workspaceId: string;
+  name: string;
+  kind: string;
+}
+
+function RegisteredUsers({ onPick }: { onPick: (email: string) => void }) {
+  const { users, usersStatus, usersSkip, usersHasNext, usersError, usersUnavailable, loadUsers } =
+    useAdminDirectoryStore();
+  const loading = usersStatus === 'idle' || usersStatus === 'loading';
+
+  return (
+    <section
+      className="users-tab__directory"
+      aria-labelledby="users-directory-title"
+      aria-busy={loading}
+    >
+      <h3 id="users-directory-title">Usuários cadastrados</h3>
+      {loading && <p role="status">Carregando usuários…</p>}
+      {usersStatus === 'error' && (
+        <p role="alert" className="users-tab__alert">
+          {usersUnavailable ? 'Recurso ainda indisponível' : usersError}
+        </p>
+      )}
+      {usersStatus === 'ready' && users.length === 0 && <p>Nenhum usuário cadastrado.</p>}
+      {usersStatus === 'ready' && users.length > 0 && (
+        <div className="users-tab__table-wrap">
+          <table className="users-tab__table">
+            <caption>Usuários cadastrados</caption>
+            <thead>
+              <tr>
+                <th scope="col">E-mail</th>
+                <th scope="col">Workspaces</th>
+                <th scope="col">Cadastrado em</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.userId}>
+                  <td>
+                    <button
+                      type="button"
+                      className="users-tab__link"
+                      title="Usar este e-mail no formulário"
+                      onClick={() => onPick(user.email)}
+                    >
+                      {user.email}
+                    </button>
+                  </td>
+                  <td>{user.workspaceCount}</td>
+                  <td>{new Date(user.createdAt).toLocaleDateString('pt-BR')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <div className="users-tab__pager">
+        <Button
+          variant="secondary"
+          disabled={loading || usersSkip === 0}
+          onClick={() => void loadUsers(Math.max(0, usersSkip - ADMIN_USERS_PAGE_SIZE))}
+        >
+          Anterior
+        </Button>
+        <Button
+          variant="secondary"
+          disabled={loading || !usersHasNext}
+          onClick={() => void loadUsers(usersSkip + ADMIN_USERS_PAGE_SIZE)}
+        >
+          Próxima
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 const UsersTab = () => {
-  const workspace = useWorkspaceStore(state =>
+  const activeWorkspace = useWorkspaceStore(state =>
     state.workspaces.find(item => item.workspaceId === state.activeWorkspaceId)
   );
+  const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId);
+  const admin = useAdminDirectoryStore();
+  const isSudo = admin.sudo === 'yes';
+  const { detectSudo, loadWorkspaces: loadAdminWorkspaces, loadUsers } = admin;
+
+  // Sudo: alvo = workspace escolhido (padrão: o ativo, se listado, senão o primeiro).
+  const adminTarget: TargetWorkspace | undefined = isSudo
+    ? (admin.workspaces.find(item => item.workspaceId === admin.selectedWorkspaceId) ??
+      admin.workspaces.find(item => item.workspaceId === activeWorkspaceId) ??
+      admin.workspaces[0])
+    : undefined;
+  const workspace: TargetWorkspace | undefined = isSudo ? adminTarget : activeWorkspace;
+  const workspaceStatus = useWorkspaceStore(state => state.status);
+  const workspaceError = useWorkspaceStore(state => state.error);
+  const loadWorkspaces = useWorkspaceStore(state => state.loadWorkspaces);
   const store = useWorkspaceMembersStore();
   const { status, members, error, unavailable, actionError, notice, busy } = store;
 
@@ -46,26 +146,55 @@ const UsersTab = () => {
 
   const workspaceId = workspace?.workspaceId;
   const isPersonal = workspace?.kind === 'personal';
+  const skipMembers = isPersonal && !isSudo;
   const loadMembers = useWorkspaceMembersStore(state => state.loadMembers);
 
+  // O MainLayout só carrega os workspaces em /workspace; em /admin a aba precisa pedi-los
+  // sozinha (a chamada é idempotente: ignora se já estiver carregando ou pronto).
   useEffect(() => {
-    if (workspaceId && !isPersonal) {
-      void loadMembers(workspaceId);
+    void loadWorkspaces();
+  }, [loadWorkspaces]);
+
+  useEffect(() => {
+    void detectSudo();
+  }, [detectSudo]);
+
+  useEffect(() => {
+    if (isSudo) {
+      void loadAdminWorkspaces();
+      void loadUsers(0);
     }
-  }, [workspaceId, isPersonal, loadMembers]);
+  }, [isSudo, loadAdminWorkspaces, loadUsers]);
+
+  useEffect(() => {
+    if (workspaceId && !skipMembers) {
+      void loadMembers(workspaceId, isSudo);
+    }
+  }, [workspaceId, skipMembers, isSudo, loadMembers]);
 
   const title = workspace ? `Usuários de ${workspace.name}` : 'Usuários';
 
   if (!workspace) {
+    const loadingWorkspaces = isSudo
+      ? admin.workspacesStatus === 'idle' || admin.workspacesStatus === 'loading'
+      : workspaceStatus === 'idle' || workspaceStatus === 'loading';
+    const loadError = isSudo ? admin.workspacesError : workspaceError;
+    const failed = isSudo ? admin.workspacesStatus === 'error' : workspaceStatus === 'error';
     return (
-      <section className="users-tab" aria-labelledby="users-tab-title">
+      <section
+        className="users-tab"
+        aria-labelledby="users-tab-title"
+        aria-busy={loadingWorkspaces}
+      >
         <h2 id="users-tab-title">{title}</h2>
-        <p>Nenhum workspace ativo.</p>
+        {loadingWorkspaces && <p>Carregando workspaces…</p>}
+        {failed && <p role="alert">{loadError ?? 'Não foi possível carregar os workspaces.'}</p>}
+        {!loadingWorkspaces && !failed && <p>Nenhum workspace ativo.</p>}
       </section>
     );
   }
 
-  if (isPersonal) {
+  if (skipMembers) {
     return (
       <section className="users-tab" aria-labelledby="users-tab-title">
         <h2 id="users-tab-title">{title}</h2>
@@ -80,7 +209,11 @@ const UsersTab = () => {
     const problem = validateEmail(normalized);
     setEmailError(problem);
     if (problem) return;
-    const ok = await store.addMember(workspace.workspaceId, { email: normalized, role });
+    const ok = await store.addMember(
+      workspace.workspaceId,
+      { email: normalized, role },
+      isPersonal
+    );
     if (ok) setEmail('');
   };
 
@@ -101,6 +234,27 @@ const UsersTab = () => {
       aria-busy={status === 'loading'}
     >
       <h2 id="users-tab-title">{title}</h2>
+
+      {isSudo && (
+        <div className="users-tab__field users-tab__workspace-select">
+          <label htmlFor="admin-workspace">Workspace</label>
+          <select
+            id="admin-workspace"
+            value={workspace.workspaceId}
+            onChange={event => admin.selectWorkspace(event.target.value)}
+          >
+            {admin.workspaces.map(item => (
+              <option key={item.workspaceId} value={item.workspaceId}>
+                {`${item.name} (${KIND_LABELS[item.kind] ?? item.kind}, ${item.memberCount} ${
+                  item.memberCount === 1 ? 'membro' : 'membros'
+                })`}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {isSudo && isPersonal && <p role="status">{PERSONAL_MESSAGE}</p>}
 
       {unavailable ? (
         <p role="alert" className="users-tab__alert">
@@ -228,6 +382,8 @@ const UsersTab = () => {
           )}
         </>
       )}
+
+      {isSudo && <RegisteredUsers onPick={setEmail} />}
 
       <Modal
         isOpen={pendingRemoval !== null}

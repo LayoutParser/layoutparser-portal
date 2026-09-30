@@ -16,6 +16,8 @@ export class MemberRequestError extends Error {
 }
 
 const UNAVAILABLE_MESSAGE = 'Recurso ainda indisponível. Tente novamente mais tarde.';
+export const PERSONAL_MESSAGE =
+  'Este workspace ainda não aceita membros. Aguarde a liberação pela API.';
 
 function apiMessage(error: unknown): string | null {
   if (!axios.isAxiosError(error)) return null;
@@ -43,14 +45,14 @@ function toMemberError(error: unknown, listing = false): MemberRequestError {
     case 409:
       // Na listagem, 409 significa workspace pessoal; nas mutações, conflito de regra.
       return listing
-        ? new MemberRequestError('personal', 'Workspaces pessoais não têm membros.')
+        ? new MemberRequestError('personal', PERSONAL_MESSAGE)
         : new MemberRequestError('conflict', apiMessage(error) ?? 'A operação entrou em conflito.');
     default:
       return new MemberRequestError('failed', 'Não foi possível concluir a operação.');
   }
 }
 
-function isMember(value: unknown): value is WorkspaceMember {
+export function isMember(value: unknown): value is WorkspaceMember {
   if (typeof value !== 'object' || value === null) return false;
   const member = value as Record<string, unknown>;
   return (
@@ -62,16 +64,13 @@ function isMember(value: unknown): value is WorkspaceMember {
   );
 }
 
-function membersPath(workspaceId: string, userId?: string): string {
-  const base = `/api/workspaces/${encodeURIComponent(workspaceId)}/members`;
-  return userId ? `${base}/${encodeURIComponent(userId)}` : base;
-}
-
 export const workspaceMemberService = {
   async listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
     let data: unknown;
     try {
-      data = (await apiClient.get<unknown>(membersPath(workspaceId))).data;
+      data = (
+        await apiClient.get<unknown>(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`)
+      ).data;
     } catch (error) {
       throw toMemberError(error, true);
     }
@@ -83,7 +82,10 @@ export const workspaceMemberService = {
 
   async addMember(workspaceId: string, request: AddMemberRequest): Promise<WorkspaceMember> {
     try {
-      const response = await apiClient.post<unknown>(membersPath(workspaceId), request);
+      const response = await apiClient.post<unknown>(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members`,
+        request
+      );
       if (!isMember(response.data)) {
         throw new MemberRequestError('failed', 'Resposta inválida ao adicionar a pessoa.');
       }
@@ -95,7 +97,10 @@ export const workspaceMemberService = {
 
   async updateRole(workspaceId: string, userId: string, role: AssignableMemberRole): Promise<void> {
     try {
-      await apiClient.patch(membersPath(workspaceId, userId), { role });
+      await apiClient.patch(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+        { role }
+      );
     } catch (error) {
       throw toMemberError(error);
     }
@@ -103,7 +108,9 @@ export const workspaceMemberService = {
 
   async removeMember(workspaceId: string, userId: string): Promise<void> {
     try {
-      await apiClient.delete(membersPath(workspaceId, userId));
+      await apiClient.delete(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`
+      );
     } catch (error) {
       throw toMemberError(error);
     }

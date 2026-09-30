@@ -1,11 +1,18 @@
 import { create } from 'zustand';
-import { MemberRequestError, workspaceMemberService } from '../services/api/workspaceMemberService';
+import { adminDirectoryService } from '../services/api/adminDirectoryService';
+import {
+  MemberRequestError,
+  PERSONAL_MESSAGE,
+  workspaceMemberService,
+} from '../services/api/workspaceMemberService';
 import type { AddMemberRequest, AssignableMemberRole, WorkspaceMember } from '../types/member';
 
 export type MembersLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface WorkspaceMembersState {
   workspaceId: string | null;
+  /** true quando a lista vem da visão sudo (/api/admin). */
+  admin: boolean;
   status: MembersLoadStatus;
   members: WorkspaceMember[];
   /** Erro de carga da lista. */
@@ -17,8 +24,12 @@ interface WorkspaceMembersState {
   /** Mensagem de sucesso da última mutação. */
   notice: string | null;
   busy: boolean;
-  loadMembers: (workspaceId: string) => Promise<void>;
-  addMember: (workspaceId: string, request: AddMemberRequest) => Promise<boolean>;
+  loadMembers: (workspaceId: string, admin?: boolean) => Promise<void>;
+  addMember: (
+    workspaceId: string,
+    request: AddMemberRequest,
+    personal?: boolean
+  ) => Promise<boolean>;
   updateRole: (workspaceId: string, userId: string, role: AssignableMemberRole) => Promise<boolean>;
   removeMember: (workspaceId: string, member: WorkspaceMember) => Promise<boolean>;
   clearFeedback: () => void;
@@ -27,6 +38,7 @@ interface WorkspaceMembersState {
 
 const initialState = {
   workspaceId: null as string | null,
+  admin: false,
   status: 'idle' as MembersLoadStatus,
   members: [] as WorkspaceMember[],
   error: null as string | null,
@@ -36,15 +48,26 @@ const initialState = {
   busy: false,
 };
 
-function messageOf(error: unknown): string {
+const ADMIN_FORBIDDEN_MESSAGE = 'Você não tem permissão para gerenciar este workspace na API.';
+
+function messageOf(error: unknown, admin = false): string {
+  // O sudo pode não ser membro do workspace escolhido: a API responde 403/404.
+  if (admin && error instanceof MemberRequestError) {
+    if (error.kind === 'forbidden' || error.kind === 'unavailable') return ADMIN_FORBIDDEN_MESSAGE;
+  }
   return error instanceof Error ? error.message : 'Não foi possível concluir a operação.';
 }
+
+const listFor = (workspaceId: string, admin: boolean) =>
+  admin
+    ? adminDirectoryService.listMembers(workspaceId)
+    : workspaceMemberService.listMembers(workspaceId);
 
 export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get) => {
   // Recarrega após mutação preservando o feedback recém-definido.
   const refresh = async (workspaceId: string) => {
     try {
-      const members = await workspaceMemberService.listMembers(workspaceId);
+      const members = await listFor(workspaceId, get().admin);
       if (get().workspaceId === workspaceId) set({ members });
     } catch {
       // A mutação já teve sucesso; a lista será atualizada no próximo carregamento.
@@ -54,14 +77,15 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
   return {
     ...initialState,
 
-    loadMembers: async workspaceId => {
+    loadMembers: async (workspaceId, admin = false) => {
       set({
         ...initialState,
         workspaceId,
+        admin,
         status: 'loading',
       });
       try {
-        const members = await workspaceMemberService.listMembers(workspaceId);
+        const members = await listFor(workspaceId, admin);
         if (get().workspaceId !== workspaceId) return;
         set({ status: 'ready', members });
       } catch (error) {
@@ -69,12 +93,13 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
         set({
           status: 'error',
           error: messageOf(error),
-          unavailable: error instanceof MemberRequestError && error.kind === 'unavailable',
+          unavailable:
+            !admin && error instanceof MemberRequestError && error.kind === 'unavailable',
         });
       }
     },
 
-    addMember: async (workspaceId, request) => {
+    addMember: async (workspaceId, request, personal = false) => {
       set({ busy: true, actionError: null, notice: null });
       try {
         const member = await workspaceMemberService.addMember(workspaceId, request);
@@ -88,7 +113,11 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
         await refresh(workspaceId);
         return true;
       } catch (error) {
-        set({ busy: false, actionError: messageOf(error) });
+        const conflict = error instanceof MemberRequestError && error.kind === 'conflict';
+        set({
+          busy: false,
+          actionError: personal && conflict ? PERSONAL_MESSAGE : messageOf(error, get().admin),
+        });
         return false;
       }
     },
@@ -101,7 +130,7 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
         await refresh(workspaceId);
         return true;
       } catch (error) {
-        set({ busy: false, actionError: messageOf(error) });
+        set({ busy: false, actionError: messageOf(error, get().admin) });
         await refresh(workspaceId);
         return false;
       }
@@ -118,7 +147,7 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
         await refresh(workspaceId);
         return true;
       } catch (error) {
-        set({ busy: false, actionError: messageOf(error) });
+        set({ busy: false, actionError: messageOf(error, get().admin) });
         return false;
       }
     },

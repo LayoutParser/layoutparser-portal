@@ -15,6 +15,7 @@ const roleLabels: Record<WorkspaceRole, string> = {
 
 const kindLabels: Record<WorkspaceKind, string> = {
   personal: 'Pessoal',
+  team: 'Time',
   organization: 'Organização',
 };
 

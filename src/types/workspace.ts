@@ -1,7 +1,9 @@
 /** Tipos fiscais suportados pelo posicionamento inicial do produto. */
 export type FiscalDocumentType = 'nfe' | 'cte' | 'mdfe' | 'nfse' | 'nfcom';
 
-export type WorkspaceKind = 'personal' | 'organization';
+// `team` é o valor que a API devolve para workspaces de time (WorkspaceKind.Team);
+// `organization` permanece por compatibilidade com o contrato anterior.
+export type WorkspaceKind = 'personal' | 'team' | 'organization';
 export type WorkspaceRole =
   'owner' | 'fiscal_admin' | 'mapper' | 'reviewer' | 'operator' | 'viewer';
 

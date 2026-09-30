@@ -18,6 +18,7 @@ um front-end React e um gateway Node.js; as regras de parsing e transformação 
 - [Arquitetura-alvo da plataforma fiscal](docs/architecture/fiscal-document-platform.md)
 - [Roadmap de produto e implementação](docs/product/fiscal-platform-roadmap.md)
 - [Mapping Studio fiscal assistido por IA](docs/product/ai-assisted-fiscal-mapping-studio.md)
+- [Papéis de workspace (RBAC): estado atual e modelo-alvo](docs/product/workspace-roles-rbac.md)
 - [Contrato cross-repo de workspace e explicabilidade](docs/contracts/fiscal-workspace-and-mapping-explanation-api.md)
 - ADRs: [escopo fiscal](docs/architecture/adr/0001-fiscal-product-scope.md),
   [identidade do workspace](docs/architecture/adr/0002-immutable-user-workspace-identity.md) e
@@ -274,6 +275,9 @@ As principais proteções existentes nesta branch são:
   permissões e isolamento de origem no IIS.
 - **Build de produção:** source maps não são publicados e há uma checagem contra endereços
   internos gravados no bundle.
+
+- **Papéis de workspace (RBAC):** a API aplica a autorização por papel; estado atual e modelo-alvo
+  (ainda não implementado) em [Papéis de workspace](docs/product/workspace-roles-rbac.md).
 
 O limite do front é configurável entre 1 e 100 MiB para experiências locais, mas aumentar
 `VITE_MAX_UPLOAD_MB` não aumenta os limites autoritativos do gateway ou da API.

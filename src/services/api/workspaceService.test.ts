@@ -72,20 +72,6 @@ describe('workspaceService', () => {
     });
   });
 
-  it('lista análises com IDs codificados e filtros fiscais', async () => {
-    const payload = { items: [], nextCursor: null };
-    vi.mocked(apiClient.get).mockResolvedValue({ data: payload });
-    const filters = { documentType: 'nfe' as const, status: 'completed' as const };
-
-    await expect(
-      workspaceService.listAnalyses('workspace / fiscal', 'projeto 1', filters)
-    ).resolves.toEqual(payload);
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/api/workspaces/workspace%20%2F%20fiscal/projects/projeto%201/analyses',
-      { params: filters }
-    );
-  });
-
   it('busca a explicação de uma versão de mapping', async () => {
     const payload = {
       mappingId: 'mapping-1',
@@ -241,8 +227,6 @@ describe('workspaceService', () => {
   });
 
   it.each([
-    () => workspaceService.listAnalyses('', 'project', {}),
-    () => workspaceService.listAnalyses('workspace', ' ', {}),
     () => workspaceService.getMappingExplanation('workspace', 'mapping', ''),
     () => workspaceService.getMappingExplanation('workspace', '', 'draft'),
   ])('recusa recurso ou versão inválida antes de chamar a API', async action => {

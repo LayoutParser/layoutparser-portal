@@ -1,9 +1,7 @@
 /**
  * Histórico de análises fiscais (LayoutParserApi#366): os arquivos que o usuário anexou junto
- * com o layout ao processar um documento, agrupados sob um `analysisId` durável. Não confundir
- * com `DocumentAnalysisSummary` (`types/workspace.ts`), que é outro domínio (revisão/status de
- * análise fiscal por projeto) — a API reaproveita o termo "análise" para dois conceitos
- * diferentes.
+ * com o layout ao processar um documento, agrupados sob um `analysisId` durável (Arquivo de
+ * análises, retenção de 90 dias).
  *
  * Ainda em `develop` na API, não em produção (falta definir pasta de armazenamento no servidor).
  */

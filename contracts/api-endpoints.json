@@ -66,13 +66,6 @@
     },
     {
       "method": "GET",
-      "path": "/api/workspaces/:param/projects/:param/analyses",
-      "owner": "LayoutParserApi",
-      "availability": "proposed",
-      "trackingIssue": "LayoutParserApi#225"
-    },
-    {
-      "method": "GET",
       "path": "/api/workspaces/:param/mappings/:param/versions/:param/explanation",
       "owner": "LayoutParserApi",
       "deliveredBy": "LayoutParserApi#240"

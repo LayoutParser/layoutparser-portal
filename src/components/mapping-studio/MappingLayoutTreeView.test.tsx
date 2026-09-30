@@ -89,7 +89,7 @@ describe('MappingLayoutTreeView', () => {
     const cardinalities = Array.from(
       document.querySelectorAll('.mapping-layout-tree-cardinality')
     ).map(node => node.textContent);
-    expect(cardinalities).toContain('(1..1)');
+    expect(cardinalities).toContain('(1, 1)');
     expect(cardinalities).toContain('(—)');
   });
 
@@ -284,5 +284,18 @@ describe('MappingLayoutTreeView', () => {
 
     fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('pendura a ligação como filho do nó de destino, como no ConnectUs', () => {
+    render(
+      <MappingLayoutTreeView source={source} target={target} rules={rules} limitations={[]} />
+    );
+
+    const items = screen.getAllByRole('treeitem');
+    const vinculos = items.filter(item =>
+      item.classList.contains('mapping-layout-tree-vinculo--link')
+    );
+    expect(vinculos.length).toBeGreaterThan(0);
+    expect(vinculos[0].textContent).toMatch(/^.*\S+_\S+$/);
   });
 });

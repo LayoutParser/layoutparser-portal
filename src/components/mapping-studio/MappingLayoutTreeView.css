@@ -257,3 +257,18 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Nós ligados ficam destacados nas duas árvores (SetLinkedItemsColor no ConnectUs). */
+.mapping-layout-tree-item--linked .mapping-layout-tree-name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-accent);
+}
+
+.mapping-layout-tree-vinculo {
+  cursor: default;
+  color: var(--color-text-muted);
+}
+
+.mapping-layout-tree-name + .mapping-layout-tree-cardinality {
+  margin-left: 1ch;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { adminDirectoryService } from '../../services/api/adminDirectoryService';
 import { PERSONAL_MESSAGE } from '../../services/api/workspaceMemberService';
 import { ADMIN_USERS_PAGE_SIZE, useAdminDirectoryStore } from '../../store/useAdminDirectoryStore';
 import { useWorkspaceMembersStore } from '../../store/useWorkspaceMembersStore';
@@ -116,13 +117,125 @@ function RegisteredUsers({ onPick }: { onPick: (email: string) => void }) {
   );
 }
 
+const NAME_MAX = 120;
+
+function validateWorkspaceName(name: string): string | null {
+  const trimmed = name.trim();
+  if (trimmed.length < 1 || trimmed.length > NAME_MAX) {
+    return `Informe um nome de 1 a ${NAME_MAX} caracteres.`;
+  }
+  for (const char of trimmed) {
+    const code = char.charCodeAt(0);
+    if (code < 32 || (code >= 127 && code <= 159)) {
+      return 'O nome não pode conter caracteres de controle.';
+    }
+  }
+  return null;
+}
+
+interface PromoteProps {
+  workspace: TargetWorkspace;
+  onPromoted: () => Promise<void> | void;
+}
+
+/** Bloco sudo: promove workspace pessoal a time (irreversível), com confirmação em modal. */
+function PromoteWorkspaceBlock({ workspace, onPromoted }: PromoteProps) {
+  const [name, setName] = useState(workspace.name);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const cancelRef = useRef<HTMLButtonElement>(null);
+
+  const requestConfirmation = () => {
+    const problem = validateWorkspaceName(name);
+    setNameError(problem);
+    if (!problem) setConfirming(true);
+  };
+
+  const confirm = async () => {
+    setConfirming(false);
+    setBusy(true);
+    setError(null);
+    try {
+      await adminDirectoryService.promoteWorkspace(workspace.workspaceId, { name: name.trim() });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Não foi possível promover o workspace.');
+      setBusy(false);
+      return;
+    }
+    setBusy(false);
+    await onPromoted();
+  };
+
+  return (
+    <section className="users-tab__promote" aria-labelledby="promote-title" aria-busy={busy}>
+      <h3 id="promote-title">Transformar em workspace de time</h3>
+      <p>
+        Este workspace ainda é pessoal e não aceita membros. Promova-o a workspace de time para
+        cadastrar pessoas. Dono, dados e histórico são mantidos; a ação não pode ser desfeita.
+      </p>
+      <div className="users-tab__field">
+        <label htmlFor="promote-name">Nome do workspace</label>
+        <input
+          id="promote-name"
+          type="text"
+          value={name}
+          onChange={event => setName(event.target.value)}
+          aria-invalid={nameError ? true : undefined}
+          aria-describedby={nameError ? 'promote-name-error' : undefined}
+        />
+        {nameError && (
+          <span id="promote-name-error" className="users-tab__field-error">
+            {nameError}
+          </span>
+        )}
+      </div>
+      <Button disabled={busy} onClick={requestConfirmation}>
+        Promover a workspace de time
+      </Button>
+      {error && (
+        <p role="alert" className="users-tab__alert">
+          {error}
+        </p>
+      )}
+      <Modal
+        isOpen={confirming}
+        onClose={() => setConfirming(false)}
+        title="Promover a workspace de time"
+        size="small"
+        initialFocusRef={cancelRef}
+      >
+        <p>
+          {`Promover "${name.trim()}" a workspace de time? Dono, dados e histórico são mantidos; a ação não pode ser desfeita.`}
+        </p>
+        <div className="users-tab__modal-actions">
+          <button
+            type="button"
+            ref={cancelRef}
+            className="btn btn-secondary"
+            onClick={() => setConfirming(false)}
+          >
+            Cancelar
+          </button>
+          <Button onClick={() => void confirm()}>Promover</Button>
+        </div>
+      </Modal>
+    </section>
+  );
+}
+
 const UsersTab = () => {
   const activeWorkspace = useWorkspaceStore(state =>
     state.workspaces.find(item => item.workspaceId === state.activeWorkspaceId)
   );
   const activeWorkspaceId = useWorkspaceStore(state => state.activeWorkspaceId);
   const admin = useAdminDirectoryStore();
-  const isSudo = admin.sudo === 'yes';
+  const workspaceIsSudo = useWorkspaceStore(state => state.isSudo);
+  const workspaceStatusForSudo = useWorkspaceStore(state => state.status);
+  // `isSudo` de /me é a fonte quando definido; senão vale o probe (derivado, sem cópia).
+  const isSudo = workspaceIsSudo ?? admin.sudo === 'yes';
+  const [promoted, setPromoted] = useState(false);
   const { detectSudo, loadWorkspaces: loadAdminWorkspaces, loadUsers } = admin;
 
   // Sudo: alvo = workspace escolhido (padrão: o ativo, se listado, senão o primeiro).
@@ -155,9 +268,11 @@ const UsersTab = () => {
     void loadWorkspaces();
   }, [loadWorkspaces]);
 
+  // Só sonda quando /me já respondeu sem `isSudo` (API antiga) ou falhou.
+  const meSettled = workspaceStatusForSudo === 'ready' || workspaceStatusForSudo === 'error';
   useEffect(() => {
-    void detectSudo();
-  }, [detectSudo]);
+    if (meSettled && workspaceIsSudo === undefined) void detectSudo();
+  }, [meSettled, workspaceIsSudo, detectSudo]);
 
   useEffect(() => {
     if (isSudo) {
@@ -241,7 +356,10 @@ const UsersTab = () => {
           <select
             id="admin-workspace"
             value={workspace.workspaceId}
-            onChange={event => admin.selectWorkspace(event.target.value)}
+            onChange={event => {
+              setPromoted(false);
+              admin.selectWorkspace(event.target.value);
+            }}
           >
             {admin.workspaces.map(item => (
               <option key={item.workspaceId} value={item.workspaceId}>
@@ -254,7 +372,18 @@ const UsersTab = () => {
         </div>
       )}
 
+      {promoted && <p role="status">Workspace promovido a time.</p>}
       {isSudo && isPersonal && <p role="status">{PERSONAL_MESSAGE}</p>}
+      {isSudo && isPersonal && (
+        <PromoteWorkspaceBlock
+          key={workspace.workspaceId}
+          workspace={workspace}
+          onPromoted={async () => {
+            setPromoted(true);
+            await Promise.all([loadWorkspaces(true), loadAdminWorkspaces()]);
+          }}
+        />
+      )}
 
       {unavailable ? (
         <p role="alert" className="users-tab__alert">

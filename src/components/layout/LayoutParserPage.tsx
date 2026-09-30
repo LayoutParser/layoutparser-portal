@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { parseService, ParseRequestError } from '../../services/api';
 import { layoutService } from '../../services/api/layoutService';
 import { logService } from '../../services/api/logService';
@@ -42,6 +42,24 @@ const LayoutParserPage: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [reopenNotice, setReopenNotice] = useState<string | null>(null);
+  // Resultado do arquivamento da última análise; `null` quando a API não informou (versão antiga).
+  const [archiveNotice, setArchiveNotice] = useState<
+    { kind: 'saved'; analysisId?: string } | { kind: 'not_saved' } | null
+  >(null);
+
+  const updateArchiveNotice = (
+    workspaceId: string | null,
+    historyRegistered?: boolean,
+    analysisId?: string
+  ) => {
+    if (historyRegistered === true) {
+      setArchiveNotice({ kind: 'saved', ...(analysisId ? { analysisId } : {}) });
+    } else if (historyRegistered === false || !workspaceId) {
+      setArchiveNotice({ kind: 'not_saved' });
+    } else {
+      setArchiveNotice(null);
+    }
+  };
   const [txtFile, setTxtFile] = useState<File | null>(null);
   const txtFileInputRef = React.useRef<HTMLInputElement>(null);
   const uploadAbortRef = React.useRef<AbortController | null>(null);
@@ -90,10 +108,20 @@ const LayoutParserPage: React.FC = () => {
   // botão para não-admin evita um controle visível que sempre resulta em 403.
   const { isAdmin } = useSessionStore();
 
-  // Opt-in do histórico de análises (LayoutParserApi#366): quando há workspace fiscal ativo,
-  // o parse fica associado a ele. Sem workspace ativo, o campo é omitido e o fluxo de upload
-  // legado continua funcionando exatamente como antes.
-  const { activeWorkspaceId } = useWorkspaceStore();
+  // Opt-in do Arquivo de análises (LayoutParserApi#366): quando há workspace ativo, o parse
+  // fica associado a ele. Se o store ainda não carregou (ex.: /upload aberto direto), aguarda
+  // a carga antes de enviar; falha de carga NÃO impede o parse — segue sem `workspaceId`.
+  const resolveWorkspaceId = async (): Promise<string | null> => {
+    const store = useWorkspaceStore.getState();
+    if (store.status === 'idle' || store.status === 'loading') {
+      try {
+        await store.loadWorkspaces();
+      } catch {
+        // Mantém o fluxo de parse independente do workspace.
+      }
+    }
+    return useWorkspaceStore.getState().activeWorkspaceId;
+  };
 
   const handleSearchLayouts = async () => {
     setIsSearching(true);
@@ -332,6 +360,7 @@ const LayoutParserPage: React.FC = () => {
     setUploadProgress(0);
     setUploadError(null);
     setParseError(null);
+    setArchiveNotice(null);
     if (usesAutomaticDetection) {
       setAutoDetectionState('loading');
       setLastAutoCandidate(candidateOverride ?? null);
@@ -340,6 +369,8 @@ const LayoutParserPage: React.FC = () => {
     try {
       const abortController = new AbortController();
       uploadAbortRef.current = abortController;
+
+      const activeWorkspaceId = await resolveWorkspaceId();
 
       if (usesAutomaticDetection) {
         const automaticOverride =
@@ -411,6 +442,11 @@ const LayoutParserPage: React.FC = () => {
             })
           );
           resetAnalysisConsumers();
+          updateArchiveNotice(
+            activeWorkspaceId,
+            response.parseResult.historyRegistered,
+            response.parseResult.analysisId
+          );
         } else if (expectsParse) {
           throw new Error(
             'A API confirmou o layout, mas não devolveu o resultado do parse do documento.'
@@ -463,6 +499,7 @@ const LayoutParserPage: React.FC = () => {
         })
       );
       resetAnalysisConsumers();
+      updateArchiveNotice(activeWorkspaceId, result.historyRegistered, result.analysisId);
     } catch (error) {
       if (uploadAbortRef.current?.signal.aborted) {
         setUploadError('Processamento cancelado. Nenhum resultado novo foi aplicado.');
@@ -698,6 +735,26 @@ const LayoutParserPage: React.FC = () => {
                 </div>
               )}
               {searchError && <div className="error-message">❌ {searchError}</div>}
+              {archiveNotice && (
+                <div className="info-message" role="status">
+                  {archiveNotice.kind === 'saved' ? (
+                    <>
+                      Arquivos salvos no{' '}
+                      {archiveNotice.analysisId ? (
+                        <Link
+                          to={`/workspace/analysis-archive/${encodeURIComponent(archiveNotice.analysisId)}`}
+                        >
+                          Arquivo de análises
+                        </Link>
+                      ) : (
+                        'Arquivo de análises'
+                      )}
+                    </>
+                  ) : (
+                    'Esta análise não foi arquivada.'
+                  )}
+                </div>
+              )}
               {reopenNotice && (
                 <div className="info-message" role="status">
                   ℹ️ {reopenNotice}

@@ -34,6 +34,7 @@ vi.mock('../../services/api/adminDirectoryService', async importOriginal => ({
     listWorkspaces: vi.fn(),
     listMembers: vi.fn(),
     listUsers: vi.fn(),
+    promoteWorkspace: vi.fn(),
   },
 }));
 
@@ -394,6 +395,110 @@ describe('UsersTab', () => {
       render(<UsersTab />, { wrapper: MemoryRouter });
       expect(await screen.findByText('Recurso ainda indisponível')).toBeTruthy();
       expect(screen.getByLabelText('Workspace')).toBeTruthy();
+    });
+
+    it('isSudo de /me dispensa o probe', async () => {
+      adminApi.listWorkspaces.mockResolvedValue(adminWorkspaces);
+      adminApi.listMembers.mockResolvedValue([owner]);
+      adminApi.listUsers.mockResolvedValue([adminUser]);
+      useWorkspaceStore.setState({
+        status: 'ready',
+        isSudo: true,
+        activeWorkspaceId: 'w1',
+        workspaces: [
+          { workspaceId: 'w1', name: 'Pessoal', kind: 'personal', role: 'owner', createdAt: 'x' },
+        ],
+      });
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      expect(await screen.findByLabelText('Workspace')).toBeTruthy();
+      expect(adminApi.probeSudo).not.toHaveBeenCalled();
+    });
+
+    it('isSudo false de /me não vê visão admin nem chama o probe', async () => {
+      seedWorkspace('organization');
+      useWorkspaceStore.setState({ isSudo: false });
+      service.listMembers.mockResolvedValue([owner]);
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      await screen.findByText('dona@example.com');
+      expect(adminApi.probeSudo).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText('Workspace')).toBeNull();
+    });
+
+    describe('promoção a workspace de time', () => {
+      it('confirma, envia o nome e recarrega os workspaces', async () => {
+        seedSudo();
+        adminApi.promoteWorkspace.mockResolvedValue();
+        workspaces.getCurrentWorkspaces.mockResolvedValue({
+          activeWorkspaceId: 'w1',
+          workspaces: [
+            { workspaceId: 'w1', name: 'Novo', kind: 'team', role: 'owner', createdAt: 'x' },
+          ],
+        });
+        adminApi.listWorkspaces
+          .mockResolvedValueOnce(adminWorkspaces)
+          .mockResolvedValue([
+            { ...adminWorkspaces[0], name: 'Novo', kind: 'team' },
+            adminWorkspaces[1],
+          ]);
+        render(<UsersTab />, { wrapper: MemoryRouter });
+        const input = await screen.findByLabelText('Nome do workspace');
+        expect((input as HTMLInputElement).value).toBe('Pessoal');
+        fireEvent.change(input, { target: { value: '  Novo  ' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Promover a workspace de time' }));
+        const dialog = screen.getByRole('dialog');
+        expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
+        expect(adminApi.promoteWorkspace).not.toHaveBeenCalled();
+        fireEvent.click(within(dialog).getByRole('button', { name: 'Promover' }));
+        await waitFor(() =>
+          expect(adminApi.promoteWorkspace).toHaveBeenCalledWith('w1', { name: 'Novo' })
+        );
+        expect(await screen.findByText('Workspace promovido a time.')).toBeTruthy();
+        await waitFor(() => expect(workspaces.getCurrentWorkspaces).toHaveBeenCalled());
+        expect(await screen.findByLabelText('E-mail')).toBeTruthy();
+        expect(screen.queryByLabelText('Nome do workspace')).toBeNull();
+      });
+
+      it('valida o nome antes de confirmar', async () => {
+        seedSudo();
+        render(<UsersTab />, { wrapper: MemoryRouter });
+        const input = await screen.findByLabelText('Nome do workspace');
+        fireEvent.change(input, { target: { value: '   ' } });
+        fireEvent.click(screen.getByRole('button', { name: 'Promover a workspace de time' }));
+        expect(input).toHaveAttribute('aria-invalid', 'true');
+        expect(input).toHaveAttribute('aria-describedby', 'promote-name-error');
+        expect(screen.queryByRole('dialog')).toBeNull();
+      });
+
+      it.each([
+        ['mensagem da API (400)', 'Nome inválido.'],
+        ['404', 'Recurso ainda indisponível ou sem permissão.'],
+        ['503', 'Serviço indisponível. Tente novamente.'],
+      ])('mostra erro em role=alert: %s', async (_label, message) => {
+        seedSudo();
+        adminApi.promoteWorkspace.mockRejectedValue(new AdminRequestError('failed', message));
+        render(<UsersTab />, { wrapper: MemoryRouter });
+        await screen.findByLabelText('Nome do workspace');
+        fireEvent.click(screen.getByRole('button', { name: 'Promover a workspace de time' }));
+        fireEvent.click(
+          within(screen.getByRole('dialog')).getByRole('button', { name: 'Promover' })
+        );
+        expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      });
+
+      it('não aparece para workspace de time', async () => {
+        seedSudo();
+        render(<UsersTab />, { wrapper: MemoryRouter });
+        fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+        await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
+        expect(screen.queryByText('Transformar em workspace de time')).toBeNull();
+      });
+
+      it('não aparece para não-sudo', async () => {
+        seedWorkspace('personal');
+        render(<UsersTab />, { wrapper: MemoryRouter });
+        await waitFor(() => expect(adminApi.probeSudo).toHaveBeenCalled());
+        expect(screen.queryByText('Transformar em workspace de time')).toBeNull();
+      });
     });
 
     it('lista de usuários vazia', async () => {

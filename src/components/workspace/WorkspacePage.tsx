@@ -107,17 +107,10 @@ const WorkspacePage = () => {
 
           <article className="workspace-action-card workspace-action-card--available">
             <span className="workspace-action-card__status">Disponível</span>
-            <h3>Histórico de análises</h3>
-            <p>Consulte as análises fiscais persistidas de um projeto, com paginação por cursor.</p>
-            <Link to="/workspace/analyses">Abrir histórico</Link>
-          </article>
-
-          <article className="workspace-action-card workspace-action-card--available">
-            <span className="workspace-action-card__status">Disponível</span>
             <h3>Arquivo de análises</h3>
             <p>
               Reveja os arquivos que você anexou junto com o layout ao processar um documento.
-              Retenção de 90 dias; diferente do histórico de análises fiscais acima.
+              Retenção de 90 dias.
             </p>
             <Link to="/workspace/analysis-archive">Abrir arquivo</Link>
           </article>

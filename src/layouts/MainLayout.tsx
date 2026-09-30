@@ -36,10 +36,11 @@ export const MainLayout: React.FC = () => {
   }, [expireSession]);
 
   useEffect(() => {
-    // O workspace possui persistência SQL própria na API e não pode se tornar dependência
-    // implícita do fluxo legado de parse. Carregamos ao entrar na área fiscal; depois disso o
-    // store em memória mantém o seletor disponível durante a navegação autenticada.
-    if (status === 'authenticated' && authenticated && location.pathname.startsWith('/workspace')) {
+    // O Arquivo de análises só registra o parse quando o upload envia `workspaceId`, e o ID
+    // ativo vem deste store. Por isso carregamos os workspaces em qualquer rota autenticada
+    // (ex.: quem abre /upload direto), sem bloquear a UI: falha aqui não impede o parse, que
+    // apenas segue sem `workspaceId`. O carregamento é idempotente (não repete se já 'ready').
+    if (status === 'authenticated' && authenticated) {
       void loadWorkspaces();
       return;
     }
@@ -47,7 +48,7 @@ export const MainLayout: React.FC = () => {
     if (status === 'unauthenticated' || status === 'error') {
       resetWorkspace();
     }
-  }, [authenticated, loadWorkspaces, location.pathname, resetWorkspace, status]);
+  }, [authenticated, loadWorkspaces, resetWorkspace, status]);
 
   // Redirecionar para /upload se estiver em /analysis sem parseResult
   useEffect(() => {

@@ -8,7 +8,6 @@ export type WorkspaceRole =
   'owner' | 'fiscal_admin' | 'mapper' | 'reviewer' | 'operator' | 'viewer';
 
 export type DocumentFormat = 'fixed_width' | 'mqseries' | 'idoc' | 'xml' | 'json';
-export type AnalysisStatus = 'queued' | 'processing' | 'completed' | 'failed' | 'expired';
 export type MappingEngine = 'tcl' | 'xslt' | 'sysmiddle';
 export type MappingSupportLevel = 'authoritative' | 'best_effort' | 'opaque' | 'unsupported';
 
@@ -23,6 +22,8 @@ export interface FiscalWorkspaceSummary {
 export interface CurrentWorkspacesResponse {
   activeWorkspaceId: string;
   workspaces: FiscalWorkspaceSummary[];
+  /** Aditivo: ausente em API antiga; quando presente indica o perfil sudo do usuário. */
+  isSudo?: boolean;
 }
 
 export type WorkspaceLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
@@ -51,33 +52,6 @@ export interface FiscalProjectSummary {
   description?: string | null;
   defaultFiscalDocumentType?: FiscalDocumentType | null;
   updatedAt: string;
-}
-
-export interface DocumentAnalysisSummary {
-  analysisId: string;
-  projectId: string;
-  fileName: string;
-  format: DocumentFormat;
-  fiscalProfile: FiscalProfile;
-  status: AnalysisStatus;
-  layoutGuid?: string | null;
-  correlationId: string;
-  createdAt: string;
-  completedAt?: string | null;
-}
-
-export interface CursorPage<T> {
-  items: T[];
-  nextCursor: string | null;
-}
-
-export interface AnalysisFilters {
-  cursor?: string;
-  documentType?: FiscalDocumentType;
-  status?: AnalysisStatus;
-  from?: string;
-  to?: string;
-  layoutGuid?: string;
 }
 
 export interface MappingEngineCapabilities {

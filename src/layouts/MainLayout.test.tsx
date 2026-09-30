@@ -173,15 +173,15 @@ describe('MainLayout — bootstrap do workspace', () => {
     );
   });
 
-  it('não torna o workspace uma dependência implícita do processamento direto', () => {
+  it('carrega os workspaces também em /upload, para que o upload possa arquivar a análise', async () => {
     render(
       <MemoryRouter initialEntries={['/upload']}>
         <MainLayout />
       </MemoryRouter>
     );
 
-    expect(workspaceService.getCurrentWorkspaces).not.toHaveBeenCalled();
-    expect(screen.getByRole('link', { name: 'Abrir workspace fiscal' })).toHaveAttribute(
+    await waitFor(() => expect(workspaceService.getCurrentWorkspaces).toHaveBeenCalledOnce());
+    expect(screen.getByRole('link', { name: 'Ir para o workspace fiscal' })).toHaveAttribute(
       'href',
       '/workspace'
     );

@@ -72,20 +72,6 @@ describe('workspaceService', () => {
     });
   });
 
-  it('lista análises com IDs codificados e filtros fiscais', async () => {
-    const payload = { items: [], nextCursor: null };
-    vi.mocked(apiClient.get).mockResolvedValue({ data: payload });
-    const filters = { documentType: 'nfe' as const, status: 'completed' as const };
-
-    await expect(
-      workspaceService.listAnalyses('workspace / fiscal', 'projeto 1', filters)
-    ).resolves.toEqual(payload);
-    expect(apiClient.get).toHaveBeenCalledWith(
-      '/api/workspaces/workspace%20%2F%20fiscal/projects/projeto%201/analyses',
-      { params: filters }
-    );
-  });
-
   it('busca a explicação de uma versão de mapping', async () => {
     const payload = {
       mappingId: 'mapping-1',
@@ -241,8 +227,6 @@ describe('workspaceService', () => {
   });
 
   it.each([
-    () => workspaceService.listAnalyses('', 'project', {}),
-    () => workspaceService.listAnalyses('workspace', ' ', {}),
     () => workspaceService.getMappingExplanation('workspace', 'mapping', ''),
     () => workspaceService.getMappingExplanation('workspace', '', 'draft'),
   ])('recusa recurso ou versão inválida antes de chamar a API', async action => {
@@ -474,6 +458,39 @@ describe('workspaceService', () => {
     it('recusa workspace ou mapping vazio antes de chamar a API', async () => {
       await expect(workspaceService.getMappingLayoutTree('', 'mapping-1')).rejects.toThrow();
       expect(apiClient.get).not.toHaveBeenCalled();
+    });
+  });
+});
+
+describe('workspaceService isSudo', () => {
+  const base = {
+    activeWorkspaceId: 'w1',
+    workspaces: [
+      {
+        workspaceId: 'w1',
+        name: 'A',
+        kind: 'team',
+        role: 'owner',
+        createdAt: '2026-08-31T12:00:00Z',
+      },
+    ],
+  };
+
+  it.each([true, false])('aceita isSudo=%s', async value => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { ...base, isSudo: value } });
+    await expect(workspaceService.getCurrentWorkspaces()).resolves.toMatchObject({ isSudo: value });
+  });
+
+  it('aceita isSudo ausente', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: base });
+    const result = await workspaceService.getCurrentWorkspaces();
+    expect(result.isSudo).toBeUndefined();
+  });
+
+  it.each(['true', 1, null])('rejeita isSudo inválido (%s)', async value => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { ...base, isSudo: value } });
+    await expect(workspaceService.getCurrentWorkspaces()).rejects.toMatchObject({
+      kind: 'invalid_response',
     });
   });
 });

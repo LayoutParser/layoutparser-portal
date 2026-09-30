@@ -7,6 +7,8 @@ interface ModalProps {
   title?: string;
   children: React.ReactNode;
   size?: 'small' | 'medium' | 'large';
+  // Elemento que deve receber o foco inicial (ex.: ação segura em confirmações destrutivas).
+  initialFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
 const FOCUSABLE_ELEMENTS = [
@@ -24,6 +26,7 @@ export const Modal: React.FC<ModalProps> = ({
   title,
   children,
   size = 'medium',
+  initialFocusRef,
 }) => {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocusedElementRef = useRef<HTMLElement | null>(null);
@@ -39,7 +42,7 @@ export const Modal: React.FC<ModalProps> = ({
 
     const dialog = dialogRef.current;
     const firstFocusableElement = dialog?.querySelector<HTMLElement>(FOCUSABLE_ELEMENTS);
-    (firstFocusableElement ?? dialog)?.focus();
+    (initialFocusRef?.current ?? firstFocusableElement ?? dialog)?.focus();
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -79,7 +82,7 @@ export const Modal: React.FC<ModalProps> = ({
       document.body.classList.remove('modal-open');
       previouslyFocusedElementRef.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, initialFocusRef]);
 
   if (!isOpen) return null;
 

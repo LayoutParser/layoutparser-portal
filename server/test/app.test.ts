@@ -275,6 +275,65 @@ describe('LayoutParser BFF', () => {
     expect(session.json()).toMatchObject({ user: { name: 'Elson Vinícius' } });
   });
 
+  it.each([
+    {
+      caso: 'display name do Google igual ao admin, sem e-mail verificado, não é admin',
+      identity: { name: 'admin@example.test' },
+      isAdmin: false,
+    },
+    {
+      caso: 'e-mail verificado do Google na lista de admins é admin',
+      identity: { name: 'Fulano de Tal', email: 'admin@example.test' },
+      isAdmin: true,
+    },
+  ])('Google: $caso', async ({ identity, isAdmin }) => {
+    const upstream = await createUpstream();
+    let transaction: OidcTransaction | undefined;
+    const oidcClient: OidcClient = {
+      async getAuthorizationUrl(value) {
+        transaction = value;
+        return `https://login.example/authorize?state=${value.state}`;
+      },
+      async exchangeAuthorizationCode() {
+        return {
+          provider: 'google',
+          roles: [],
+          subject: '123456789012345678901',
+          ...identity,
+        };
+      },
+    };
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      LAYOUTPARSER_API_URL: upstream.url,
+      BFF_PUBLIC_ORIGIN: 'https://layoutparser.example',
+      ENTRA_TENANT_ID: 'common',
+      ENTRA_CLIENT_ID: testClientId,
+      ENTRA_CLIENT_SECRET: testClientSecret,
+      BFF_ADMIN_USERS: 'admin@example.test',
+    });
+    const app = await buildApp(config, { logger: false, oidcClient });
+    await app.ready();
+    apps.push(app);
+    upstreams.push(upstream);
+
+    const login = await app.inject({ method: 'GET', url: '/auth/login' });
+    const loginCookie = String(login.headers['set-cookie']).split(';', 1)[0];
+    const callback = await app.inject({
+      method: 'GET',
+      url: `/auth/callback?code=test-code&state=${transaction?.state}`,
+      headers: { cookie: loginCookie },
+    });
+    const sessionCookie = String(callback.headers['set-cookie']).split(';', 1)[0];
+    const session = await app.inject({
+      method: 'GET',
+      url: '/api/session',
+      headers: { cookie: sessionCookie },
+    });
+
+    expect(session.json()).toMatchObject({ authenticated: true, isAdmin });
+  });
+
   it('conclui login OIDC com state, nonce e PKCE e permite logout local', async () => {
     let authorizationTransaction: OidcTransaction | undefined;
     let exchangeRequest: OidcExchangeRequest | undefined;

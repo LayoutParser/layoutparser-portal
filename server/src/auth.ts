@@ -43,7 +43,10 @@ export function normalizeEmail(value: unknown): string | null {
     return null;
   }
   const email = value.trim().toLocaleLowerCase('en-US');
-  return email.length <= 320 && EMAIL_PATTERN.test(email) ? email : null;
+  // ASCII imprimível apenas: o valor vai num header HTTP e o Node rejeita bytes fora de Latin-1.
+  return email.length <= 320 && /^[\x21-\x7e]+$/.test(email) && EMAIL_PATTERN.test(email)
+    ? email
+    : null;
 }
 
 function isSafeIdentityValue(value: string): boolean {
@@ -82,8 +85,17 @@ function parseRoles(value: string | null): readonly string[] {
   ].slice(0, 50);
 }
 
-function calculateIsAdmin(name: string, roles: readonly string[], config: AppConfig): boolean {
-  if (config.adminUsers.has(name.toLocaleLowerCase('en-US'))) {
+// No Google o `name` é o display name da conta, editável por qualquer pessoa: usá-lo para conceder
+// admin permitiria a qualquer usuário se passar por um admin só renomeando a própria conta. Para o
+// Google, portanto, só vale o e-mail verificado (SessionIdentity.email) ou os papéis. No Entra o
+// `name` continua sendo o preferred_username (comportamento existente).
+function calculateIsAdmin(
+  identity: { provider: string; name: string; email?: string },
+  roles: readonly string[],
+  config: AppConfig
+): boolean {
+  const adminKey = identity.provider === 'google' ? identity.email : identity.name;
+  if (adminKey && config.adminUsers.has(adminKey.toLocaleLowerCase('en-US'))) {
     return true;
   }
 
@@ -119,7 +131,15 @@ export function resolveIdentity(
       subject: sessionIdentity.subject,
       ...(sessionIdentity.tenantId ? { tenantId: sessionIdentity.tenantId } : {}),
       ...(email ? { email } : {}),
-      isAdmin: calculateIsAdmin(sessionIdentity.name, roles, config),
+      isAdmin: calculateIsAdmin(
+        {
+          provider: sessionIdentity.provider,
+          name: sessionIdentity.name,
+          ...(email ? { email } : {}),
+        },
+        roles,
+        config
+      ),
     };
   }
 
@@ -139,7 +159,7 @@ export function resolveIdentity(
     roles,
     // Identidade sintética limitada ao desenvolvimento. Produção nunca entra neste ramo.
     subject: name,
-    isAdmin: calculateIsAdmin(name, roles, config),
+    isAdmin: calculateIsAdmin({ provider: 'development', name }, roles, config),
   };
 }
 

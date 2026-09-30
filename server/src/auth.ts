@@ -14,6 +14,8 @@ export interface AuthenticatedIdentity {
   readonly roles: readonly string[];
   readonly subject: string;
   readonly tenantId?: string;
+  // E-mail já verificado pelo provedor (ver oidc.ts). Ausente = não confiável.
+  readonly email?: string;
   readonly isAdmin: boolean;
 }
 
@@ -26,10 +28,26 @@ export interface SessionIdentity {
   readonly subject: string;
   // Específico do Entra (tenant do diretório). Login via Google não preenche este campo.
   readonly tenantId?: string;
+  // Só preenchido quando o provedor garante a verificação do e-mail.
+  readonly email?: string;
 }
 
 type AnyFastifyRequest = FastifyRequest<RequestGenericInterface, RawServerBase>;
 type AnyFastifyReply = FastifyReply<RouteGenericInterface, RawServerBase>;
+
+const EMAIL_PATTERN = /^[^\s@,;<>()"]+@[^\s@,;<>()"]+\.[^\s@,;<>()"]+$/;
+
+// Normaliza (trim + minúsculas) e valida o formato; devolve null se inválido. Nunca logar o valor.
+export function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const email = value.trim().toLocaleLowerCase('en-US');
+  // ASCII imprimível apenas: o valor vai num header HTTP e o Node rejeita bytes fora de Latin-1.
+  return email.length <= 320 && /^[\x21-\x7e]+$/.test(email) && EMAIL_PATTERN.test(email)
+    ? email
+    : null;
+}
 
 function isSafeIdentityValue(value: string): boolean {
   if (value.length === 0 || value.length > 256) {
@@ -67,8 +85,17 @@ function parseRoles(value: string | null): readonly string[] {
   ].slice(0, 50);
 }
 
-function calculateIsAdmin(name: string, roles: readonly string[], config: AppConfig): boolean {
-  if (config.adminUsers.has(name.toLocaleLowerCase('en-US'))) {
+// No Google o `name` é o display name da conta, editável por qualquer pessoa: usá-lo para conceder
+// admin permitiria a qualquer usuário se passar por um admin só renomeando a própria conta. Para o
+// Google, portanto, só vale o e-mail verificado (SessionIdentity.email) ou os papéis. No Entra o
+// `name` continua sendo o preferred_username (comportamento existente).
+function calculateIsAdmin(
+  identity: { provider: string; name: string; email?: string },
+  roles: readonly string[],
+  config: AppConfig
+): boolean {
+  const adminKey = identity.provider === 'google' ? identity.email : identity.name;
+  if (adminKey && config.adminUsers.has(adminKey.toLocaleLowerCase('en-US'))) {
     return true;
   }
 
@@ -88,6 +115,7 @@ export function resolveIdentity(
     (sessionIdentity.tenantId === undefined ||
       (typeof sessionIdentity.tenantId === 'string' &&
         isSafeIdentityValue(sessionIdentity.tenantId))) &&
+    (sessionIdentity.email === undefined || typeof sessionIdentity.email === 'string') &&
     Array.isArray(sessionIdentity.roles) &&
     isSafeIdentityValue(sessionIdentity.name) &&
     isSafeIdentityValue(sessionIdentity.subject)
@@ -95,13 +123,23 @@ export function resolveIdentity(
     const roles = sessionIdentity.roles
       .filter((role): role is string => typeof role === 'string' && isSafeIdentityValue(role))
       .slice(0, 50);
+    const email = normalizeEmail(sessionIdentity.email);
     return {
       provider: sessionIdentity.provider,
       name: sessionIdentity.name,
       roles,
       subject: sessionIdentity.subject,
       ...(sessionIdentity.tenantId ? { tenantId: sessionIdentity.tenantId } : {}),
-      isAdmin: calculateIsAdmin(sessionIdentity.name, roles, config),
+      ...(email ? { email } : {}),
+      isAdmin: calculateIsAdmin(
+        {
+          provider: sessionIdentity.provider,
+          name: sessionIdentity.name,
+          ...(email ? { email } : {}),
+        },
+        roles,
+        config
+      ),
     };
   }
 
@@ -121,7 +159,7 @@ export function resolveIdentity(
     roles,
     // Identidade sintética limitada ao desenvolvimento. Produção nunca entra neste ramo.
     subject: name,
-    isAdmin: calculateIsAdmin(name, roles, config),
+    isAdmin: calculateIsAdmin({ provider: 'development', name }, roles, config),
   };
 }
 

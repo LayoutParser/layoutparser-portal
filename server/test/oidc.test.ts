@@ -10,7 +10,8 @@ vi.mock('openid-client', () => ({
   authorizationCodeGrant: (...args: unknown[]) => authorizationCodeGrant(...args),
 }));
 
-const { createOidcClients } = await import('../src/oidc.js');
+const { createOidcClients, identityFromEntraClaims, identityFromGoogleClaims } =
+  await import('../src/oidc.js');
 const { loadConfig } = await import('../src/config.js');
 
 const googleConfig = {
@@ -164,5 +165,54 @@ describe('GoogleOidcClient (via createOidcClients)', () => {
         codeVerifier: sampleTransaction.codeVerifier,
       })
     ).rejects.toThrowError('identidade utilizável');
+  });
+});
+
+describe('e-mail verificado na identidade', () => {
+  const googleClaims = { sub: 'google-subject-123', name: 'Ana', email: '  Ana@Example.COM ' };
+  const entraClaims = {
+    oid: 'entra-oid-123',
+    preferred_username: 'ana@corp.example',
+    email: 'Ana@Corp.Example',
+    tid: 'Tenant-Confiavel',
+  };
+
+  it('Google com email_verified === true expõe o e-mail normalizado', () => {
+    expect(identityFromGoogleClaims({ ...googleClaims, email_verified: true }).email).toBe(
+      'ana@example.com'
+    );
+  });
+
+  it.each([false, 'true', undefined])('Google com email_verified=%s não expõe e-mail', value => {
+    const identity = identityFromGoogleClaims({ ...googleClaims, email_verified: value });
+    expect(identity.email).toBeUndefined();
+  });
+
+  it('Entra fora da allowlist de tenants não expõe e-mail (padrão)', () => {
+    expect(identityFromEntraClaims(entraClaims, undefined, 'x', 'y').email).toBeUndefined();
+    expect(
+      identityFromEntraClaims(entraClaims, undefined, 'x', 'y', new Set(['outro-tenant'])).email
+    ).toBeUndefined();
+  });
+
+  it('Entra em tenant confiável expõe o e-mail normalizado', () => {
+    const identity = identityFromEntraClaims(
+      entraClaims,
+      undefined,
+      'x',
+      'y',
+      new Set(['tenant-confiavel'])
+    );
+    expect(identity.email).toBe('ana@corp.example');
+  });
+
+  it('e-mail malformado ou acima de 320 caracteres é descartado', () => {
+    const long = `${'a'.repeat(320)}@example.com`;
+    expect(
+      identityFromGoogleClaims({ ...googleClaims, email: 'sem-arroba', email_verified: true }).email
+    ).toBeUndefined();
+    expect(
+      identityFromGoogleClaims({ ...googleClaims, email: long, email_verified: true }).email
+    ).toBeUndefined();
   });
 });

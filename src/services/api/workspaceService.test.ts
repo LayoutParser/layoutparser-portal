@@ -30,6 +30,24 @@ describe('workspaceService', () => {
     expect(apiClient.get).toHaveBeenCalledWith('/api/workspaces/me');
   });
 
+  it('aceita workspace de time (kind "team", valor devolvido pela API)', async () => {
+    const payload = {
+      activeWorkspaceId: 'workspace-2',
+      workspaces: [
+        {
+          workspaceId: 'workspace-2',
+          name: 'Time Fiscal',
+          kind: 'team',
+          role: 'fiscal_admin',
+          createdAt: '2026-09-30T12:00:00Z',
+        },
+      ],
+    };
+    vi.mocked(apiClient.get).mockResolvedValue({ data: payload });
+
+    await expect(workspaceService.getCurrentWorkspaces()).resolves.toEqual(payload);
+  });
+
   it.each([
     null,
     { activeWorkspaceId: '', workspaces: [] },

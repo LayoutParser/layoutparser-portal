@@ -34,7 +34,7 @@ export class WorkspaceRequestError extends Error {
   }
 }
 
-const workspaceKinds = new Set(['personal', 'organization']);
+const workspaceKinds = new Set(['personal', 'team', 'organization']);
 const workspaceRoles = new Set([
   'owner',
   'fiscal_admin',

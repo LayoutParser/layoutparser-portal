@@ -107,6 +107,8 @@ BFF_TRUSTED_ROLES_HEADER=X-IIS-Roles
 BFF_TRUSTED_IDENTITY_PROVIDER_HEADER=X-LayoutParser-Identity-Provider
 BFF_TRUSTED_IDENTITY_SUBJECT_HEADER=X-LayoutParser-Identity-Subject
 BFF_TRUSTED_IDENTITY_TENANT_HEADER=X-LayoutParser-Identity-Tenant
+BFF_TRUSTED_IDENTITY_EMAIL_HEADER=X-LayoutParser-Identity-Email
+BFF_TRUSTED_EMAIL_TENANTS=
 BFF_ADMIN_USERS=
 BFF_ADMIN_ROLES=
 BFF_DEV_AUTH_ENABLED=false
@@ -118,6 +120,15 @@ existir somente no secret store do ambiente. `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_S
 **opcionais** em qualquer ambiente, inclusive produção: se ausentes, `/auth/google/login` responde
 503 e o Entra continua funcionando normalmente. Não há restrição de domínio do Google — qualquer
 conta pessoal ou do Workspace pode autenticar.
+
+**E-mail verificado.** O BFF repassa à API o e-mail do usuário em
+`BFF_TRUSTED_IDENTITY_EMAIL_HEADER` (padrão `x-layoutparser-identity-email`), sempre em minúsculas,
+com no máximo 320 caracteres e nunca logado. Ele só é enviado quando verificado: Google exige
+`email_verified === true`; Entra **não** é confiável por padrão (app multi-tenant `common` pode
+emitir e-mail não verificado) e só envia quando o `tid` do token consta em
+`BFF_TRUSTED_EMAIL_TENANTS` (CSV de tenant IDs; padrão vazio). E-mail não verificado permitiria
+escalada de privilégio (convite pendente viraria membership). O header recebido do cliente é
+sempre removido. `/api/admin` e `/api/admin/*` exigem admin do BFF (`BFF_ADMIN_PATHS`).
 
 O BFF usa Authorization Code + PKCE e valida `state` e `nonce` em ambos os provedores. A sessão é
 um cookie criptografado `HttpOnly`, `Secure` e `SameSite=Lax`, com duração padrão de oito horas.

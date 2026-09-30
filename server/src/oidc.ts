@@ -4,7 +4,7 @@ import { ConfidentialClientApplication } from '@azure/msal-node';
 import type { FastifyBaseLogger, FastifyInstance } from 'fastify';
 import * as openidClient from 'openid-client';
 
-import type { AuthProvider, SessionIdentity } from './auth.js';
+import { normalizeEmail, type AuthProvider, type SessionIdentity } from './auth.js';
 import type { AppConfig, EntraConfig, GoogleConfig } from './config.js';
 
 const OIDC_SCOPES = ['openid', 'profile', 'email'];
@@ -153,11 +153,12 @@ function readRoles(claims: TokenClaims): readonly string[] {
   ].slice(0, 50);
 }
 
-function identityFromEntraClaims(
+export function identityFromEntraClaims(
   claims: TokenClaims,
   fallbackUsername: string | undefined,
   fallbackSubject: string,
-  fallbackTenantId: string
+  fallbackTenantId: string,
+  trustedEmailTenants: ReadonlySet<string> = new Set()
 ): SessionIdentity {
   const name =
     readStringClaim(claims, 'preferred_username') ??
@@ -171,10 +172,23 @@ function identityFromEntraClaims(
     throw new Error('O token autenticado não contém uma identidade utilizável.');
   }
 
-  return { provider: 'entra', name, roles: readRoles(claims), subject, tenantId };
+  // App multi-tenant: o claim `email` do Entra pode ser não verificado. Só confiamos nele
+  // quando o tenant do token está na allowlist configurada (BFF_TRUSTED_EMAIL_TENANTS).
+  const email = trustedEmailTenants.has(tenantId.toLowerCase())
+    ? normalizeEmail(claims.email)
+    : null;
+
+  return {
+    provider: 'entra',
+    name,
+    roles: readRoles(claims),
+    subject,
+    tenantId,
+    ...(email ? { email } : {}),
+  };
 }
 
-function identityFromGoogleClaims(claims: TokenClaims): SessionIdentity {
+export function identityFromGoogleClaims(claims: TokenClaims): SessionIdentity {
   const name = readStringClaim(claims, 'name') ?? readStringClaim(claims, 'email');
   const subject = readStringClaim(claims, 'sub');
 
@@ -184,15 +198,25 @@ function identityFromGoogleClaims(claims: TokenClaims): SessionIdentity {
 
   // O Google não emite papéis (roles) de aplicação; autorização fina segue via
   // BFF_ADMIN_USERS/BFF_ADMIN_ROLES com base no e-mail/nome, igual ao fluxo Entra.
-  return { provider: 'google', name, roles: [], subject };
+  // Somente e-mail com verificação explícita: e-mail não verificado permitiria escalada de
+  // privilégio (convite pendente vira membership no primeiro login com aquele e-mail).
+  const email = claims.email_verified === true ? normalizeEmail(claims.email) : null;
+
+  return { provider: 'google', name, roles: [], subject, ...(email ? { email } : {}) };
 }
 
 class MsalOidcClient implements OidcClient {
+  readonly #trustedEmailTenants: ReadonlySet<string>;
   readonly #configuration: EntraConfig;
   readonly #client: ConfidentialClientApplication;
   readonly #logger: FastifyBaseLogger | undefined;
 
-  public constructor(configuration: EntraConfig, logger?: FastifyBaseLogger) {
+  public constructor(
+    configuration: EntraConfig,
+    logger?: FastifyBaseLogger,
+    trustedEmailTenants: ReadonlySet<string> = new Set()
+  ) {
+    this.#trustedEmailTenants = trustedEmailTenants;
     this.#configuration = configuration;
     this.#logger = logger;
     this.#client = new ConfidentialClientApplication({
@@ -272,7 +296,8 @@ class MsalOidcClient implements OidcClient {
         result.idTokenClaims as TokenClaims,
         result.account?.username,
         result.uniqueId,
-        result.tenantId
+        result.tenantId,
+        this.#trustedEmailTenants
       );
     } catch (error) {
       this.#logger?.warn(
@@ -468,7 +493,9 @@ export interface OidcClients {
 
 export function createOidcClients(config: AppConfig, logger?: FastifyBaseLogger): OidcClients {
   return {
-    entra: config.entra ? new MsalOidcClient(config.entra, logger) : null,
+    entra: config.entra
+      ? new MsalOidcClient(config.entra, logger, config.trustedEmailTenants)
+      : null,
     google: config.google ? new GoogleOidcClient(config.google, logger) : null,
   };
 }

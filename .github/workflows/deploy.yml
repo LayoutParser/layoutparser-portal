@@ -75,6 +75,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ vars.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BFF_DNS_SERVERS: ${{ vars.BFF_DNS_SERVERS }}
+          BFF_TRUSTED_EMAIL_TENANTS: ${{ vars.BFF_TRUSTED_EMAIL_TENANTS }}
         run: |
           set -euo pipefail
           require() {
@@ -101,6 +102,7 @@ jobs:
           export ADMIN_USERS="$BFF_ADMIN_USERS"
           export ADMIN_ROLES="$BFF_ADMIN_ROLES"
           export DNS_SERVERS="$BFF_DNS_SERVERS"
+          export TRUSTED_EMAIL_TENANTS="$BFF_TRUSTED_EMAIL_TENANTS"
           export FRONTEND_SOURCE=dist
           export SERVER_SOURCE=server
 

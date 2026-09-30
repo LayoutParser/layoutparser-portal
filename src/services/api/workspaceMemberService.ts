@@ -64,16 +64,13 @@ export function isMember(value: unknown): value is WorkspaceMember {
   );
 }
 
-function membersPath(workspaceId: string, userId?: string): string {
-  const base = `/api/workspaces/${encodeURIComponent(workspaceId)}/members`;
-  return userId ? `${base}/${encodeURIComponent(userId)}` : base;
-}
-
 export const workspaceMemberService = {
   async listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
     let data: unknown;
     try {
-      data = (await apiClient.get<unknown>(membersPath(workspaceId))).data;
+      data = (
+        await apiClient.get<unknown>(`/api/workspaces/${encodeURIComponent(workspaceId)}/members`)
+      ).data;
     } catch (error) {
       throw toMemberError(error, true);
     }
@@ -85,7 +82,10 @@ export const workspaceMemberService = {
 
   async addMember(workspaceId: string, request: AddMemberRequest): Promise<WorkspaceMember> {
     try {
-      const response = await apiClient.post<unknown>(membersPath(workspaceId), request);
+      const response = await apiClient.post<unknown>(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members`,
+        request
+      );
       if (!isMember(response.data)) {
         throw new MemberRequestError('failed', 'Resposta inválida ao adicionar a pessoa.');
       }
@@ -97,7 +97,10 @@ export const workspaceMemberService = {
 
   async updateRole(workspaceId: string, userId: string, role: AssignableMemberRole): Promise<void> {
     try {
-      await apiClient.patch(membersPath(workspaceId, userId), { role });
+      await apiClient.patch(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`,
+        { role }
+      );
     } catch (error) {
       throw toMemberError(error);
     }
@@ -105,7 +108,9 @@ export const workspaceMemberService = {
 
   async removeMember(workspaceId: string, userId: string): Promise<void> {
     try {
-      await apiClient.delete(membersPath(workspaceId, userId));
+      await apiClient.delete(
+        `/api/workspaces/${encodeURIComponent(workspaceId)}/members/${encodeURIComponent(userId)}`
+      );
     } catch (error) {
       throw toMemberError(error);
     }

@@ -54,15 +54,16 @@ function isAdminUser(value: unknown): value is AdminUserSummary {
   );
 }
 
+// O `request` recebe a chamada com o caminho literal: o contract:check só enxerga endpoints
+// escritos literalmente em `apiClient.<verbo>(...)`.
 async function getList<T>(
-  path: string,
+  request: () => Promise<{ data: unknown }>,
   guard: (value: unknown) => value is T,
-  params?: AdminPageParams,
   notFoundMessage?: string
 ): Promise<T[]> {
   let data: unknown;
   try {
-    data = (await apiClient.get<unknown>(path, { params })).data;
+    data = (await request()).data;
   } catch (error) {
     throw toAdminError(error, notFoundMessage);
   }
@@ -85,19 +86,22 @@ export const adminDirectoryService = {
   },
 
   listWorkspaces(params: AdminPageParams = { take: 200 }): Promise<AdminWorkspaceSummary[]> {
-    return getList('/api/admin/workspaces', isAdminWorkspace, params);
+    return getList(
+      () => apiClient.get<unknown>('/api/admin/workspaces', { params }),
+      isAdminWorkspace
+    );
   },
 
   listMembers(workspaceId: string): Promise<WorkspaceMember[]> {
     return getList(
-      `/api/admin/workspaces/${encodeURIComponent(workspaceId)}/members`,
+      () =>
+        apiClient.get<unknown>(`/api/admin/workspaces/${encodeURIComponent(workspaceId)}/members`),
       isMember,
-      undefined,
       'Workspace não encontrado.'
     );
   },
 
   listUsers(params: AdminPageParams): Promise<AdminUserSummary[]> {
-    return getList('/api/admin/users', isAdminUser, params);
+    return getList(() => apiClient.get<unknown>('/api/admin/users', { params }), isAdminUser);
   },
 };

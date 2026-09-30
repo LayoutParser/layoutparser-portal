@@ -132,6 +132,28 @@ function resourceSegment(value: string, label: string): string {
   return encodeURIComponent(normalized);
 }
 
+/**
+ * A API serializa com `DefaultIgnoreCondition = WhenWritingNull`: campos nulos chegam AUSENTES,
+ * não como `null`. Normaliza ausente → `null` antes da validação estrita dos campos anuláveis.
+ */
+function nullifyMissing(value: unknown, keys: readonly string[]): unknown {
+  if (!isRecord(value) || Array.isArray(value)) return value;
+  const result: Record<string, unknown> = { ...value };
+  for (const key of keys) {
+    if (result[key] === undefined) result[key] = null;
+  }
+  return result;
+}
+
+const governanceNullableKeys = [
+  'approvedByUserId',
+  'approvedAt',
+  'approvalJustification',
+  'publishedByUserId',
+  'publishedAt',
+  'previousPublishedReleaseId',
+] as const;
+
 function invalidResponse(): MappingReleaseRequestError {
   return new MappingReleaseRequestError(
     'invalid_response',
@@ -172,6 +194,7 @@ function parseDiagnostic(value: unknown): MappingCompileDiagnostic {
 }
 
 function parseDivergence(value: unknown): MappingTestRunDivergence {
+  value = nullifyMissing(value, ['expected', 'actual', 'ruleId', 'sourceRefs', 'evidence']);
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.kind) ||
@@ -325,6 +348,7 @@ function parseRequiredCoverage(value: unknown): MappingRequiredCoverage | null {
 }
 
 function parseRelease(value: unknown): MappingRelease {
+  value = nullifyMissing(value, ['testRunSummary']);
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.releaseId) ||
@@ -389,6 +413,7 @@ function parseRelease(value: unknown): MappingRelease {
 }
 
 function parseReleaseSummary(value: unknown): MappingReleaseSummary {
+  value = nullifyMissing(value, governanceNullableKeys);
   if (
     !isRecord(value) ||
     (value.origin !== undefined && value.origin !== 'draft_compile') ||
@@ -538,6 +563,7 @@ function parseGovernanceSnapshot(
   value: unknown,
   expectedStatus: MappingReleaseStatus
 ): MappingGovernanceSnapshot {
+  value = nullifyMissing(value, governanceNullableKeys);
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.releaseId) ||
@@ -589,6 +615,7 @@ function assertGovernanceResource(
 }
 
 function parseJob(value: unknown): MappingCompileJob {
+  value = nullifyMissing(value, ['releaseId', 'error', 'durationMs']);
   if (
     !isRecord(value) ||
     !isNonEmptyString(value.jobId) ||
@@ -610,6 +637,7 @@ function parseJob(value: unknown): MappingCompileJob {
 }
 
 function parseTestJob(value: unknown): MappingTestRunJob {
+  value = nullifyMissing(value, ['requiredGatesPassed']);
   const job = parseJob(value);
   if (
     !isRecord(value) ||

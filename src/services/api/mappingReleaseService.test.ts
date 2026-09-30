@@ -79,6 +79,16 @@ describe('mappingReleaseService', () => {
     ).resolves.toMatchObject({ status: 'completed', releaseId: 'release-1' });
   });
 
+  it('aceita release cujos campos nulos foram omitidos pela API (WhenWritingNull)', async () => {
+    const withoutNulls: Partial<typeof release> = { ...release };
+    delete withoutNulls.testRunSummary;
+    vi.mocked(apiClient.get).mockResolvedValue({ data: withoutNulls });
+
+    await expect(
+      mappingReleaseService.getRelease('workspace-1', 'draft-1', 'release-1')
+    ).resolves.toMatchObject({ releaseId: 'release-1', testRunSummary: null });
+  });
+
   it('consulta release e valida o snapshot compilado', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: release });
 

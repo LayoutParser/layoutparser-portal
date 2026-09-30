@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import AuthenticationGate from '../components/auth/AuthenticationGate';
 import HomePage from '../components/marketing/HomePage';
+import NotificationBell from '../components/notifications/NotificationBell';
 import WorkspaceSwitcher from '../components/workspace/WorkspaceSwitcher';
 import { sessionService } from '../services/api/sessionService';
 import { useAppStore } from '../store/useAppStore';
@@ -130,6 +131,7 @@ export const MainLayout: React.FC = () => {
               Administração
             </Link>
           )}
+          <NotificationBell />
           <span className="session-avatar" aria-hidden="true">
             {userInitial}
           </span>

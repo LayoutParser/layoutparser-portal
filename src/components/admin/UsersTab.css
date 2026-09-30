@@ -1,0 +1,7 @@
+.users-tab {
+  padding: var(--spacing-lg);
+}
+
+.users-tab h2 {
+  margin: 0 0 var(--spacing-sm);
+}

@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import LayoutParserPage from '../layout/LayoutParserPage';
 import MonitoringTab from './MonitoringTab';
 import LayoutValidationTab from './LayoutValidationTab';
+import UsersTab from './UsersTab';
 import AiMetricsPanel from '../aiMetrics/AiMetricsPanel';
 import './AdminPage.css';
 
 const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<
-    'processing' | 'monitoring' | 'validation' | 'aiMetrics'
+    'processing' | 'monitoring' | 'validation' | 'aiMetrics' | 'users'
   >('processing');
 
   return (
@@ -43,6 +44,13 @@ const AdminPage: React.FC = () => {
           >
             Métricas IA
           </button>
+          <button
+            type="button"
+            className={`admin-tab ${activeTab === 'users' ? 'active' : ''}`}
+            onClick={() => setActiveTab('users')}
+          >
+            Usuários
+          </button>
         </div>
       </div>
 
@@ -68,6 +76,12 @@ const AdminPage: React.FC = () => {
         {activeTab === 'aiMetrics' && (
           <div className="admin-tab-content">
             <AiMetricsPanel />
+          </div>
+        )}
+
+        {activeTab === 'users' && (
+          <div className="admin-tab-content">
+            <UsersTab />
           </div>
         )}
       </div>

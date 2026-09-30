@@ -116,6 +116,19 @@ function safeErrorMessage(statusCode: number, error: Error): string {
   return 'A requisição não pôde ser processada.';
 }
 
+// O Kestrel da API responde 400 vazio para header com byte não-ASCII, e o Node envia "í" como o
+// byte Latin-1 0xED (UTF-8 inválido). Nome com acento derrubava toda chamada autenticada
+// (ex.: GET /api/workspaces/me). O header leva só uma versão ASCII do nome, apenas para exibição
+// e auditoria; a sessão do BFF mantém o nome original.
+function toAsciiHeaderValue(value: string): string {
+  const ascii = value
+    .normalize('NFD')
+    .replace(/\p{M}+/gu, '')
+    .replace(/[^\x20-\x7e]/g, '?')
+    .trim();
+  return ascii || 'usuario';
+}
+
 function rewriteProxyHeaders(
   request: FastifyRequest<RequestGenericInterface, RawServerBase>,
   headers: Record<string, string | string[] | undefined>,
@@ -135,7 +148,7 @@ function rewriteProxyHeaders(
 
   rewritten['x-correlation-id'] = request.id;
   if (request.identity) {
-    rewritten[config.trustedUserHeader] = request.identity.name;
+    rewritten[config.trustedUserHeader] = toAsciiHeaderValue(request.identity.name);
     rewritten[config.trustedIdentityProviderHeader] = request.identity.provider;
     rewritten[config.trustedIdentitySubjectHeader] = request.identity.subject;
     if (request.identity.tenantId) {

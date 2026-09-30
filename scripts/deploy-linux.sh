@@ -302,7 +302,8 @@ rollback() {
     ln -sfn "$PREVIOUS_FRONTEND_PATH" "$CURRENT_LINK"
   fi
   if [[ -n "$PREVIOUS_ECOSYSTEM_PATH" && -f "$PREVIOUS_ECOSYSTEM_PATH" ]]; then
-    pm2 startOrReload "$PREVIOUS_ECOSYSTEM_PATH" --update-env || true
+    pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+    pm2 start "$PREVIOUS_ECOSYSTEM_PATH" --update-env || true
   else
     pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
   fi
@@ -310,8 +311,10 @@ rollback() {
 }
 trap rollback ERR
 
-log "Subindo $APP_NAME via pm2 startOrReload"
-pm2 startOrReload "$ECOSYSTEM_PATH" --update-env
+# startOrReload mantém script path/cwd do processo existente; recriar garante a release nova.
+log "Recriando $APP_NAME via pm2 start"
+pm2 delete "$APP_NAME" >/dev/null 2>&1 || true
+pm2 start "$ECOSYSTEM_PATH" --update-env
 
 log 'Aguardando health check do BFF'
 wait_bff_health

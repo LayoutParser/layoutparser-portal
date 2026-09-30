@@ -63,4 +63,20 @@ describe('WorkspaceSwitcher', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reconectar workspace' }));
     expect(loadWorkspaces).toHaveBeenCalledWith(true);
   });
+
+  it('mostra "Sem workspace" no lugar do select quando a lista é vazia', () => {
+    useWorkspaceStore.setState({ status: 'ready', workspaces: [], activeWorkspaceId: null });
+
+    render(
+      <MemoryRouter>
+        <WorkspaceSwitcher />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole('link', { name: 'Sem workspace' })).toHaveAttribute(
+      'href',
+      '/workspace'
+    );
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
 });

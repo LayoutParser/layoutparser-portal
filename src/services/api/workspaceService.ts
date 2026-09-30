@@ -322,9 +322,15 @@ function parseCurrentWorkspaces(data: unknown): CurrentWorkspacesResponse {
     throw new WorkspaceRequestError('invalid_response', 'A API devolveu um workspace inválido.');
   }
 
+  // `isSudo` é aditivo: ausente é aceito (API antiga); presente e não-boolean invalida a resposta.
+  if (candidate.isSudo !== undefined && typeof candidate.isSudo !== 'boolean') {
+    throw new WorkspaceRequestError('invalid_response', 'A API devolveu um workspace inválido.');
+  }
+
   return {
     activeWorkspaceId: candidate.activeWorkspaceId,
     workspaces,
+    ...(candidate.isSudo !== undefined ? { isSudo: candidate.isSudo } : {}),
   };
 }
 

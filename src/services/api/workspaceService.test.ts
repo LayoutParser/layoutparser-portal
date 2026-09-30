@@ -477,3 +477,36 @@ describe('workspaceService', () => {
     });
   });
 });
+
+describe('workspaceService isSudo', () => {
+  const base = {
+    activeWorkspaceId: 'w1',
+    workspaces: [
+      {
+        workspaceId: 'w1',
+        name: 'A',
+        kind: 'team',
+        role: 'owner',
+        createdAt: '2026-08-31T12:00:00Z',
+      },
+    ],
+  };
+
+  it.each([true, false])('aceita isSudo=%s', async value => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { ...base, isSudo: value } });
+    await expect(workspaceService.getCurrentWorkspaces()).resolves.toMatchObject({ isSudo: value });
+  });
+
+  it('aceita isSudo ausente', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: base });
+    const result = await workspaceService.getCurrentWorkspaces();
+    expect(result.isSudo).toBeUndefined();
+  });
+
+  it.each(['true', 1, null])('rejeita isSudo inválido (%s)', async value => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({ data: { ...base, isSudo: value } });
+    await expect(workspaceService.getCurrentWorkspaces()).rejects.toMatchObject({
+      kind: 'invalid_response',
+    });
+  });
+});

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { adminDirectoryService, AdminRequestError } from '../services/api/adminDirectoryService';
+import { useWorkspaceStore } from './useWorkspaceStore';
 import type { AdminUserSummary, AdminWorkspaceSummary } from '../types/member';
 
 export const ADMIN_USERS_PAGE_SIZE = 50;
@@ -46,6 +47,12 @@ export const useAdminDirectoryStore = create<AdminDirectoryState>((set, get) => 
 
   detectSudo: async () => {
     if (get().sudo !== 'unknown') return;
+    // `isSudo` de /api/workspaces/me é a fonte quando vier definido; o probe é só fallback.
+    const declared = useWorkspaceStore.getState().isSudo;
+    if (declared !== undefined) {
+      set({ sudo: declared ? 'yes' : 'no' });
+      return;
+    }
     set({ sudo: 'checking' });
     const isSudo = await adminDirectoryService.probeSudo();
     set({ sudo: isSudo ? 'yes' : 'no' });

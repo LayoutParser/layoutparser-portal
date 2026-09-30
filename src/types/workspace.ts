@@ -23,6 +23,8 @@ export interface FiscalWorkspaceSummary {
 export interface CurrentWorkspacesResponse {
   activeWorkspaceId: string;
   workspaces: FiscalWorkspaceSummary[];
+  /** Aditivo: ausente em API antiga; quando presente indica o perfil sudo do usuário. */
+  isSudo?: boolean;
 }
 
 export type WorkspaceLoadStatus = 'idle' | 'loading' | 'ready' | 'error';

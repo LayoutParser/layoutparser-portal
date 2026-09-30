@@ -91,3 +91,19 @@
   gap: var(--spacing-sm);
   margin-top: var(--spacing-sm);
 }
+
+.users-tab__promote {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border, #ddd);
+  border-radius: 6px;
+}
+
+.users-tab__promote h3,
+.users-tab__promote p {
+  margin: 0;
+}

@@ -306,6 +306,7 @@
     { "method": "GET", "path": "/api/admin/workspaces", "owner": "LayoutParserApi" },
     { "method": "GET", "path": "/api/admin/workspaces/:param/members", "owner": "LayoutParserApi" },
     { "method": "GET", "path": "/api/admin/users", "owner": "LayoutParserApi" },
+    { "method": "PATCH", "path": "/api/admin/workspaces/:param", "owner": "LayoutParserApi" },
     { "method": "GET", "path": "/api/workspaces/:param/members", "owner": "LayoutParserApi" },
     { "method": "POST", "path": "/api/workspaces/:param/members", "owner": "LayoutParserApi" },
     {

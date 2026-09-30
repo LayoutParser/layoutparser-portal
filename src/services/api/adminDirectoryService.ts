@@ -101,6 +101,39 @@ export const adminDirectoryService = {
     );
   },
 
+  /** Promove workspace pessoal a time (204). Só sudo; nunca rebaixa. */
+  async promoteWorkspace(workspaceId: string, body: { name: string }): Promise<void> {
+    try {
+      await apiClient.patch(`/api/admin/workspaces/${encodeURIComponent(workspaceId)}`, {
+        kind: 'team',
+        name: body.name,
+      });
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        const status = error.response?.status;
+        if (status === 400) {
+          const detail = (error.response?.data as { error?: unknown } | undefined)?.error;
+          throw new AdminRequestError(
+            'failed',
+            typeof detail === 'string' && detail.trim()
+              ? detail
+              : 'Dados inválidos para a promoção.'
+          );
+        }
+        if (status === 404) {
+          throw new AdminRequestError(
+            'unavailable',
+            'Recurso ainda indisponível ou sem permissão.'
+          );
+        }
+        if (status === 503) {
+          throw new AdminRequestError('unavailable', 'Serviço indisponível. Tente novamente.');
+        }
+      }
+      throw new AdminRequestError('failed', 'Não foi possível promover o workspace.');
+    }
+  },
+
   listUsers(params: AdminPageParams): Promise<AdminUserSummary[]> {
     return getList(() => apiClient.get<unknown>('/api/admin/users', { params }), isAdminUser);
   },

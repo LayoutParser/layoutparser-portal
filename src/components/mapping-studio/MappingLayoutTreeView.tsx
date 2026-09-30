@@ -1,4 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
+import { buildVinculos, formatNodeCardinality } from '../../utils/connectUsTree';
+import type { ConnectUsDiagnostic } from '../../utils/connectUsTree';
 import Modal from '../shared/Modal';
 import type {
   LayoutTreeNode,
@@ -31,6 +33,12 @@ const kindIcons: Record<LayoutTreeNodeKind, string> = {
   element: '▤',
   attribute: '@',
   group: '▦',
+};
+
+const diagnosticLabels: Record<ConnectUsDiagnostic['code'], string> = {
+  ORPHAN_LINK: 'Vínculo órfão: aponta para um nó que não existe no layout',
+  TARGET_HAS_MULTIPLE_LINKS: 'Destino com mais de uma ligação',
+  TARGET_HAS_LINK_AND_RULE: 'Destino com ligação e regra ao mesmo tempo',
 };
 
 const kindLabels: Record<LayoutTreeNodeKind, string> = {
@@ -168,6 +176,16 @@ const MappingLayoutTreeView = ({
     return new Set(guids);
   }, [activeCorrelation, rulesBySourceGuid, rulesByTargetGuid]);
 
+  // Como no ConnectUs: ligações e regras são nós filhos do elemento de DESTINO.
+  const { byTarget: vinculosByTarget, diagnostics } = useMemo(
+    () => buildVinculos(source, target, rules),
+    [source, target, rules]
+  );
+  const linkedSourceGuids = useMemo(
+    () => new Set(rules.map(rule => rule.sourceElementGuid).filter(Boolean)),
+    [rules]
+  );
+
   const normalizedSearch = search.trim().toLowerCase();
   const visibleKeys = useMemo(() => {
     if (!normalizedSearch) return null;
@@ -256,12 +274,15 @@ const MappingLayoutTreeView = ({
     const key = nodeKey(side, node.guid);
     if (visibleKeys && !visibleKeys.has(key)) return null;
 
-    const hasChildren = node.children.length > 0;
+    const vinculos = side === 'target' ? (vinculosByTarget.get(node.guid) ?? []) : [];
+    const hasChildren = node.children.length > 0 || vinculos.length > 0;
     const isExpanded = hasChildren && (Boolean(visibleKeys) || expanded.has(key));
     const isSelected = selected?.side === side && selected.guid === node.guid;
     const hasRule =
       side === 'source' ? sourceRuleGuids.has(node.guid) : targetRuleGuids.has(node.guid);
     const isHighlighted = highlightedGuids.has(node.guid);
+    const isLinked =
+      side === 'source' ? linkedSourceGuids.has(node.guid) : vinculosByTarget.has(node.guid);
     const ruleLinks =
       side === 'source'
         ? (rulesBySourceGuid.get(node.guid) ?? [])
@@ -284,6 +305,7 @@ const MappingLayoutTreeView = ({
             'mapping-layout-tree-item',
             isSelected ? 'mapping-layout-tree-item--selected' : '',
             isHighlighted ? 'mapping-layout-tree-item--highlighted' : '',
+            isLinked ? 'mapping-layout-tree-item--linked' : '',
           ]
             .filter(Boolean)
             .join(' ')}
@@ -315,8 +337,8 @@ const MappingLayoutTreeView = ({
             {kindIcons[node.kind]}
           </span>
           <span className="mapping-layout-tree-name">{node.name}</span>
-          <span className="mapping-layout-tree-cardinality">({formatCardinality(node)})</span>
-          {hasRule && (
+          <span className="mapping-layout-tree-cardinality">{formatNodeCardinality(node)}</span>
+          {side === 'source' && hasRule && (
             <span className="mapping-layout-tree-rule-badges">
               {ruleLinks.map(rule => (
                 <span key={rule.ruleId} className="mapping-layout-tree-rule-badge">
@@ -329,6 +351,26 @@ const MappingLayoutTreeView = ({
         {hasChildren && isExpanded && (
           <ul className="mapping-layout-tree-children" role="group">
             {node.children.map(child => renderNode(side, child, level + 1))}
+            {vinculos.map(vinculo => (
+              <li key={vinculo.id} className="mapping-layout-tree-node" role="none">
+                <div
+                  role="treeitem"
+                  aria-level={level + 1}
+                  aria-selected={false}
+                  className={`mapping-layout-tree-item mapping-layout-tree-vinculo mapping-layout-tree-vinculo--${vinculo.kind}`}
+                >
+                  <span className="mapping-layout-tree-spacer" aria-hidden="true" />
+                  <span
+                    className="mapping-layout-tree-icon"
+                    aria-hidden="true"
+                    title={vinculo.kind === 'rule' ? 'Regra' : 'Ligação'}
+                  >
+                    {vinculo.kind === 'rule' ? '⚙' : '🔗'}
+                  </span>
+                  <span className="mapping-layout-tree-name">{vinculo.text}</span>
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </li>
@@ -383,6 +425,16 @@ const MappingLayoutTreeView = ({
         <ul className="mapping-layout-tree-unrepresented" role="status">
           {limitations.map(limitation => (
             <li key={limitation}>{limitation}</li>
+          ))}
+        </ul>
+      )}
+
+      {diagnostics.length > 0 && (
+        <ul className="mapping-layout-tree-unrepresented" role="status">
+          {diagnostics.map(diagnostic => (
+            <li key={`${diagnostic.code}:${diagnostic.id}`}>
+              {diagnosticLabels[diagnostic.code]} (<code>{diagnostic.id}</code>)
+            </li>
           ))}
         </ul>
       )}

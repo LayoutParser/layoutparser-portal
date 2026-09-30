@@ -162,13 +162,11 @@ const MappingFiscalProfilePanel = ({
         <dl className="mapping-rule-facts">
           <div>
             <dt>XSD resolvido</dt>
-            <dd>{draft.resolvedXsd.xsdPath}</dd>
+            <dd>{draft.resolvedXsd.xsdVersion}</dd>
           </div>
           <div>
-            <dt>Tipo/versão</dt>
-            <dd>
-              {draft.resolvedXsd.documentType.toUpperCase()} · {draft.resolvedXsd.schemaVersion}
-            </dd>
+            <dt>Elemento raiz</dt>
+            <dd>{draft.resolvedXsd.rootElement}</dd>
           </div>
         </dl>
       )}

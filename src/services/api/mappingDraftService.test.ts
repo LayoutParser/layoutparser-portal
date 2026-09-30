@@ -206,7 +206,11 @@ describe('mappingDraftService', () => {
         data: {
           ...draft,
           fiscalProfile: profile,
-          resolvedXsd: { documentType: 'nfe', schemaVersion: '4.00', xsdPath: '/xsd/nfe/4.00.xsd' },
+          resolvedXsd: {
+            xsdVersion: 'PL_009_V4',
+            namespace: 'http://www.portalfiscal.inf.br/nfe',
+            rootElement: 'nfeProc',
+          },
         },
       });
 
@@ -222,9 +226,9 @@ describe('mappingDraftService', () => {
       );
       expect(result.fiscalProfile).toEqual(profile);
       expect(result.resolvedXsd).toEqual({
-        documentType: 'nfe',
-        schemaVersion: '4.00',
-        xsdPath: '/xsd/nfe/4.00.xsd',
+        xsdVersion: 'PL_009_V4',
+        namespace: 'http://www.portalfiscal.inf.br/nfe',
+        rootElement: 'nfeProc',
       });
     });
 

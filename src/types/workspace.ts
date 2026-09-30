@@ -33,15 +33,13 @@ export interface FiscalProfile {
 }
 
 /**
- * Eco derivado de `XsdValidation:DocumentTypes` para o `fiscalProfile` gravado num draft/release
- * (issue #198, PUT .../mapping-drafts/{draftId}/fiscal-profile). Shape NÃO confirmado contra
- * OpenAPI/MCP — modelado a partir da descrição funcional recebida (documentType/schemaVersion +
- * caminho do XSD resolvido); revalidar com `@lp-contract-qa` quando o MCP da API estiver disponível.
+ * XSD resolvido pela API para o `fiscalProfile` de um draft/release. Confirmado pela API
+ * (mensagem do hub, 2026-09-30): a API não expõe caminho físico, apenas versão/namespace/raiz.
  */
 export interface ResolvedXsdReference {
-  documentType: FiscalDocumentType;
-  schemaVersion: string;
-  xsdPath: string;
+  xsdVersion: string;
+  namespace: string;
+  rootElement: string;
 }
 
 export interface FiscalProjectSummary {

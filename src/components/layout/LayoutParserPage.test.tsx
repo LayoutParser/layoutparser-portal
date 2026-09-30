@@ -5,6 +5,8 @@ import { ParseRequestError, parseService } from '../../services/api';
 import { layoutService } from '../../services/api/layoutService';
 import { useAppStore } from '../../store/useAppStore';
 import { useSessionStore } from '../../store/useSessionStore';
+import { useWorkspaceStore } from '../../store/useWorkspaceStore';
+import { workspaceService } from '../../services/api/workspaceService';
 import { useTransformationStore } from '../../store/useTransformationStore';
 import LayoutParserPage from './LayoutParserPage';
 
@@ -21,6 +23,10 @@ vi.mock('../../services/api/layoutService', () => ({
     searchLayouts: vi.fn(),
     refreshCache: vi.fn(),
   },
+}));
+
+vi.mock('../../services/api/workspaceService', () => ({
+  workspaceService: { getCurrentWorkspaces: vi.fn() },
 }));
 
 vi.mock('../../services/api/logService', () => ({
@@ -83,6 +89,7 @@ describe('LayoutParserPage', () => {
     useAppStore.getState().reset();
     useSessionStore.getState().reset();
     useTransformationStore.getState().reset();
+    useWorkspaceStore.getState().reset();
     vi.mocked(layoutService.searchLayouts).mockResolvedValue({
       success: true,
       layouts: [layout],
@@ -560,5 +567,77 @@ describe('LayoutParserPage', () => {
     expect(await screen.findByText(/Layout Detectado Automaticamente/)).toBeInTheDocument();
     expect(parseService.parseFiles).not.toHaveBeenCalled();
     expect(parseService.parseAutomatically).not.toHaveBeenCalled();
+  });
+
+  describe('Arquivo de análises', () => {
+    const okParse = { success: true, text: '001CONTEUDO', fields: [] };
+    const processManual = async () => {
+      render(
+        <MemoryRouter>
+          <LayoutParserPage />
+        </MemoryRouter>
+      );
+      await selectLayoutAndFile();
+      fireEvent.click(screen.getByRole('button', { name: 'Processar Documento' }));
+      await waitFor(() => expect(parseService.parseFiles).toHaveBeenCalledTimes(1));
+    };
+
+    it('aguarda o carregamento dos workspaces e envia workspaceId', async () => {
+      vi.mocked(workspaceService.getCurrentWorkspaces).mockResolvedValue({
+        activeWorkspaceId: 'ws-1',
+        workspaces: [],
+      });
+      vi.mocked(parseService.parseFiles).mockResolvedValue({
+        ...okParse,
+        historyRegistered: true,
+        analysisId: 'an-1',
+      });
+
+      await processManual();
+
+      expect(vi.mocked(parseService.parseFiles).mock.calls[0][0]).toMatchObject({
+        workspaceId: 'ws-1',
+      });
+      const status = await screen.findByText(/Arquivos salvos no/);
+      expect(status.closest('[role="status"]')).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: 'Arquivo de análises' })).toHaveAttribute(
+        'href',
+        '/workspace/analysis-archive/an-1'
+      );
+    });
+
+    it('segue sem workspaceId quando o carregamento falha e avisa que não arquivou', async () => {
+      vi.mocked(workspaceService.getCurrentWorkspaces).mockRejectedValue(new Error('falha'));
+      vi.mocked(parseService.parseFiles).mockResolvedValue(okParse);
+
+      await processManual();
+
+      expect(vi.mocked(parseService.parseFiles).mock.calls[0][0]).not.toHaveProperty('workspaceId');
+      expect(await screen.findByText('Esta análise não foi arquivada.')).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('avisa quando a API respondeu historyRegistered false', async () => {
+      useWorkspaceStore.setState({ status: 'ready', activeWorkspaceId: 'ws-1' });
+      vi.mocked(parseService.parseFiles).mockResolvedValue({
+        ...okParse,
+        historyRegistered: false,
+      });
+
+      await processManual();
+
+      expect(await screen.findByText('Esta análise não foi arquivada.')).toBeInTheDocument();
+    });
+
+    it('não mostra nada quando a API antiga não envia o campo', async () => {
+      useWorkspaceStore.setState({ status: 'ready', activeWorkspaceId: 'ws-1' });
+      vi.mocked(parseService.parseFiles).mockResolvedValue(okParse);
+
+      await processManual();
+      await screen.findByText('Resultado de análise carregado');
+
+      expect(screen.queryByText(/Arquivos salvos/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/não foi arquivada/)).not.toBeInTheDocument();
+    });
   });
 });

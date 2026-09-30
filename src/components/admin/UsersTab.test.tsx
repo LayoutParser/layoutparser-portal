@@ -5,7 +5,9 @@ import {
   MemberRequestError,
   workspaceMemberService,
 } from '../../services/api/workspaceMemberService';
+import { AdminRequestError, adminDirectoryService } from '../../services/api/adminDirectoryService';
 import { workspaceService } from '../../services/api/workspaceService';
+import { useAdminDirectoryStore } from '../../store/useAdminDirectoryStore';
 import { useWorkspaceMembersStore } from '../../store/useWorkspaceMembersStore';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import type { WorkspaceMember } from '../../types/member';
@@ -25,12 +27,23 @@ vi.mock('../../services/api/workspaceMemberService', async importOriginal => ({
   },
 }));
 
+vi.mock('../../services/api/adminDirectoryService', async importOriginal => ({
+  ...(await importOriginal<typeof import('../../services/api/adminDirectoryService')>()),
+  adminDirectoryService: {
+    probeSudo: vi.fn(),
+    listWorkspaces: vi.fn(),
+    listMembers: vi.fn(),
+    listUsers: vi.fn(),
+  },
+}));
+
 vi.mock('../../services/api/workspaceService', () => ({
   workspaceService: { getCurrentWorkspaces: vi.fn() },
 }));
 
 const service = vi.mocked(workspaceMemberService);
 const workspaces = vi.mocked(workspaceService);
+const adminApi = vi.mocked(adminDirectoryService);
 const owner: WorkspaceMember = {
   userId: 'o1',
   displayName: 'Dona',
@@ -68,6 +81,9 @@ describe('UsersTab', () => {
   beforeEach(() => {
     Object.values(service).forEach(fn => fn.mockReset());
     workspaces.getCurrentWorkspaces.mockReset();
+    Object.values(adminApi).forEach(fn => fn.mockReset());
+    adminApi.probeSudo.mockResolvedValue(false);
+    useAdminDirectoryStore.getState().reset();
     useWorkspaceStore.getState().reset();
     useWorkspaceMembersStore.getState().reset();
   });
@@ -243,5 +259,148 @@ describe('UsersTab', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Usuários' }));
     expect(screen.getByRole('heading', { name: 'Usuários de Fiscal da equipe' })).toBeVisible();
+  });
+
+  describe('visão de administrador (sudo)', () => {
+    const adminWorkspaces = [
+      {
+        workspaceId: 'w1',
+        name: 'Pessoal',
+        kind: 'personal',
+        ownerUserId: 'u1',
+        memberCount: 1,
+        createdAt: '2026-08-31T12:00:00Z',
+      },
+      {
+        workspaceId: 'w2',
+        name: 'Time B',
+        kind: 'team',
+        ownerUserId: 'u2',
+        memberCount: 3,
+        createdAt: '2026-08-31T12:00:00Z',
+      },
+    ];
+    const adminUser = {
+      userId: 'u9',
+      email: 'fulana@example.com',
+      workspaceCount: 2,
+      createdAt: '2026-09-01T00:00:00Z',
+    };
+
+    function seedSudo() {
+      adminApi.probeSudo.mockResolvedValue(true);
+      adminApi.listWorkspaces.mockResolvedValue(adminWorkspaces);
+      adminApi.listMembers.mockResolvedValue([owner]);
+      adminApi.listUsers.mockResolvedValue([adminUser]);
+      seedWorkspace('personal');
+    }
+
+    it('não-sudo não vê seletor nem lista de usuários', async () => {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner]);
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      await screen.findByText('dona@example.com');
+      expect(adminApi.probeSudo).toHaveBeenCalled();
+      expect(screen.queryByLabelText('Workspace')).toBeNull();
+      expect(screen.queryByText('Usuários cadastrados')).toBeNull();
+      expect(adminApi.listUsers).not.toHaveBeenCalled();
+    });
+
+    it('sudo vê todos os workspaces, mesmo o pessoal, e a lista de usuários', async () => {
+      seedSudo();
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      const select = await screen.findByLabelText('Workspace');
+      expect(within(select).getByText('Pessoal (pessoal, 1 membro)')).toBeTruthy();
+      expect(within(select).getByText('Time B (time, 3 membros)')).toBeTruthy();
+      expect((select as HTMLSelectElement).value).toBe('w1');
+      await screen.findByText('fulana@example.com');
+      await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w1'));
+      expect(service.listMembers).not.toHaveBeenCalled();
+    });
+
+    it('trocar o workspace muda o alvo das chamadas', async () => {
+      seedSudo();
+      service.addMember.mockRejectedValue(new MemberRequestError('conflict', 'x'));
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+      await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
+      service.addMember.mockResolvedValue({ ...guest, email: 'nova@example.com' });
+      fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+      await waitFor(() =>
+        expect(service.addMember).toHaveBeenCalledWith('w2', {
+          email: 'nova@example.com',
+          role: 'viewer',
+        })
+      );
+    });
+
+    it('409 ao adicionar em workspace pessoal mostra mensagem amigável', async () => {
+      seedSudo();
+      service.addMember.mockRejectedValue(new MemberRequestError('conflict', 'x'));
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      await screen.findByLabelText('Workspace');
+      fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toBe(
+        'Este workspace ainda não aceita membros. Aguarde a liberação pela API.'
+      );
+    });
+
+    it('403 do sudo em workspace alheio mostra mensagem de permissão', async () => {
+      seedSudo();
+      service.addMember.mockRejectedValue(new MemberRequestError('forbidden', 'x'));
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+      fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
+      expect((await screen.findByRole('alert')).textContent).toBe(
+        'Você não tem permissão para gerenciar este workspace na API.'
+      );
+    });
+
+    it('clicar no e-mail da lista preenche o formulário e a paginação usa take 50', async () => {
+      seedSudo();
+      adminApi.listUsers.mockResolvedValueOnce(
+        Array.from({ length: 50 }, (_, i) => ({
+          ...adminUser,
+          userId: `u${i}`,
+          email: `p${i}@x.com`,
+        }))
+      );
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      fireEvent.click(await screen.findByRole('button', { name: 'p3@x.com' }));
+      expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('p3@x.com');
+      fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
+      await waitFor(() =>
+        expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 50, take: 50 })
+      );
+      await screen.findByText('fulana@example.com');
+      fireEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+      await waitFor(() =>
+        expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 0, take: 50 })
+      );
+    });
+
+    it('lista de usuários indisponível (404/503) mostra aviso sem quebrar o resto', async () => {
+      seedSudo();
+      adminApi.listUsers.mockRejectedValue(
+        new AdminRequestError(
+          'unavailable',
+          'Recurso ainda indisponível. Tente novamente mais tarde.'
+        )
+      );
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      expect(await screen.findByText('Recurso ainda indisponível')).toBeTruthy();
+      expect(screen.getByLabelText('Workspace')).toBeTruthy();
+    });
+
+    it('lista de usuários vazia', async () => {
+      seedSudo();
+      adminApi.listUsers.mockResolvedValue([]);
+      render(<UsersTab />, { wrapper: MemoryRouter });
+      expect(await screen.findByText('Nenhum usuário cadastrado.')).toBeTruthy();
+    });
   });
 });

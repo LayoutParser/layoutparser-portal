@@ -67,3 +67,27 @@
     min-width: 560px;
   }
 }
+
+.users-tab__workspace-select {
+  margin-bottom: var(--spacing-md);
+}
+
+.users-tab__directory {
+  margin-top: var(--spacing-lg);
+}
+
+.users-tab__link {
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--color-primary, #0b5cad);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.users-tab__pager {
+  display: flex;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
+}

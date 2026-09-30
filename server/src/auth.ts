@@ -14,6 +14,8 @@ export interface AuthenticatedIdentity {
   readonly roles: readonly string[];
   readonly subject: string;
   readonly tenantId?: string;
+  // E-mail já verificado pelo provedor (ver oidc.ts). Ausente = não confiável.
+  readonly email?: string;
   readonly isAdmin: boolean;
 }
 
@@ -26,10 +28,23 @@ export interface SessionIdentity {
   readonly subject: string;
   // Específico do Entra (tenant do diretório). Login via Google não preenche este campo.
   readonly tenantId?: string;
+  // Só preenchido quando o provedor garante a verificação do e-mail.
+  readonly email?: string;
 }
 
 type AnyFastifyRequest = FastifyRequest<RequestGenericInterface, RawServerBase>;
 type AnyFastifyReply = FastifyReply<RouteGenericInterface, RawServerBase>;
+
+const EMAIL_PATTERN = /^[^\s@,;<>()"]+@[^\s@,;<>()"]+\.[^\s@,;<>()"]+$/;
+
+// Normaliza (trim + minúsculas) e valida o formato; devolve null se inválido. Nunca logar o valor.
+export function normalizeEmail(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const email = value.trim().toLocaleLowerCase('en-US');
+  return email.length <= 320 && EMAIL_PATTERN.test(email) ? email : null;
+}
 
 function isSafeIdentityValue(value: string): boolean {
   if (value.length === 0 || value.length > 256) {
@@ -88,6 +103,7 @@ export function resolveIdentity(
     (sessionIdentity.tenantId === undefined ||
       (typeof sessionIdentity.tenantId === 'string' &&
         isSafeIdentityValue(sessionIdentity.tenantId))) &&
+    (sessionIdentity.email === undefined || typeof sessionIdentity.email === 'string') &&
     Array.isArray(sessionIdentity.roles) &&
     isSafeIdentityValue(sessionIdentity.name) &&
     isSafeIdentityValue(sessionIdentity.subject)
@@ -95,12 +111,14 @@ export function resolveIdentity(
     const roles = sessionIdentity.roles
       .filter((role): role is string => typeof role === 'string' && isSafeIdentityValue(role))
       .slice(0, 50);
+    const email = normalizeEmail(sessionIdentity.email);
     return {
       provider: sessionIdentity.provider,
       name: sessionIdentity.name,
       roles,
       subject: sessionIdentity.subject,
       ...(sessionIdentity.tenantId ? { tenantId: sessionIdentity.tenantId } : {}),
+      ...(email ? { email } : {}),
       isAdmin: calculateIsAdmin(sessionIdentity.name, roles, config),
     };
   }

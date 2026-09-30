@@ -40,6 +40,9 @@ describe('loadConfig', () => {
     expect(config.trustedIdentityProviderHeader).toBe('x-layoutparser-identity-provider');
     expect(config.trustedIdentitySubjectHeader).toBe('x-layoutparser-identity-subject');
     expect(config.trustedIdentityTenantHeader).toBe('x-layoutparser-identity-tenant');
+    expect(config.trustedIdentityEmailHeader).toBe('x-layoutparser-identity-email');
+    expect(config.trustedEmailTenants.size).toBe(0);
+    expect(config.adminPaths).toContain('/api/admin/*');
     expect(config.adminRoles.has('layoutparseradmins')).toBe(true);
   });
 

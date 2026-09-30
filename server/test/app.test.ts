@@ -849,3 +849,133 @@ describe('LayoutParser BFF', () => {
     }
   });
 });
+
+describe('e-mail verificado repassado à API', () => {
+  async function loginAndProxy(
+    identity: Awaited<ReturnType<OidcClient['exchangeAuthorizationCode']>>,
+    spoofedEmail?: string
+  ): Promise<CapturedRequest | undefined> {
+    const upstream = await createUpstream();
+    let transaction: OidcTransaction | undefined;
+    const oidcClient: OidcClient = {
+      async getAuthorizationUrl(value) {
+        transaction = value;
+        return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?state=${value.state}`;
+      },
+      async exchangeAuthorizationCode() {
+        return identity;
+      },
+    };
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      LAYOUTPARSER_API_URL: upstream.url,
+      BFF_PUBLIC_ORIGIN: 'https://layoutparser.example',
+      ENTRA_TENANT_ID: 'common',
+      ENTRA_CLIENT_ID: testClientId,
+      ENTRA_CLIENT_SECRET: testClientSecret,
+      BFF_ADMIN_ROLES: 'LayoutParserAdmins',
+    });
+    const app = await buildApp(config, { logger: false, oidcClient });
+    await app.ready();
+    apps.push(app);
+    upstreams.push(upstream);
+
+    const login = await app.inject({ method: 'GET', url: '/auth/login' });
+    const loginCookie = String(login.headers['set-cookie']).split(';', 1)[0];
+    const callback = await app.inject({
+      method: 'GET',
+      url: `/auth/callback?code=test-code&state=${transaction?.state}`,
+      headers: { cookie: loginCookie },
+    });
+    const sessionCookie = String(callback.headers['set-cookie']).split(';', 1)[0];
+    await app.inject({
+      method: 'GET',
+      url: '/api/layouts',
+      headers: {
+        cookie: sessionCookie,
+        ...(spoofedEmail ? { 'x-layoutparser-identity-email': spoofedEmail } : {}),
+      },
+    });
+    return upstream.requests[0];
+  }
+
+  const base = {
+    provider: 'google' as const,
+    name: 'Ana',
+    roles: [],
+    subject: 'subject-12345678901234567890',
+  };
+
+  it('envia o e-mail verificado da sessão no header de identidade', async () => {
+    const request = await loginAndProxy({ ...base, email: 'ana@example.com' });
+    expect(request?.headers['x-layoutparser-identity-email']).toBe('ana@example.com');
+  });
+
+  it('não envia header quando a sessão não tem e-mail verificado', async () => {
+    const request = await loginAndProxy(base);
+    expect(request?.headers['x-layoutparser-identity-email']).toBeUndefined();
+  });
+
+  it('remove o header de e-mail forjado pelo cliente', async () => {
+    const request = await loginAndProxy(base, 'vitima@example.com');
+    expect(request?.headers['x-layoutparser-identity-email']).toBeUndefined();
+  });
+
+  it('a sessão com e-mail cabe no cookie criptografado (< 4096 bytes)', async () => {
+    const upstream = await createUpstream();
+    let transaction: OidcTransaction | undefined;
+    const oidcClient: OidcClient = {
+      async getAuthorizationUrl(value) {
+        transaction = value;
+        return `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?state=${value.state}`;
+      },
+      async exchangeAuthorizationCode() {
+        return {
+          ...base,
+          provider: 'entra',
+          tenantId: 'tenant-12345678901234567890',
+          email: `${'a'.repeat(300)}@example.com`.slice(-320),
+          roles: ['LayoutParserAdmins'],
+        };
+      },
+    };
+    const config = loadConfig({
+      NODE_ENV: 'production',
+      LAYOUTPARSER_API_URL: upstream.url,
+      BFF_PUBLIC_ORIGIN: 'https://layoutparser.example',
+      ENTRA_TENANT_ID: 'common',
+      ENTRA_CLIENT_ID: testClientId,
+      ENTRA_CLIENT_SECRET: testClientSecret,
+      BFF_ADMIN_ROLES: 'LayoutParserAdmins',
+    });
+    const app = await buildApp(config, { logger: false, oidcClient });
+    await app.ready();
+    apps.push(app);
+    upstreams.push(upstream);
+    const login = await app.inject({ method: 'GET', url: '/auth/login' });
+    const loginCookie = String(login.headers['set-cookie']).split(';', 1)[0];
+    const callback = await app.inject({
+      method: 'GET',
+      url: `/auth/callback?code=test-code&state=${transaction?.state}`,
+      headers: { cookie: loginCookie },
+    });
+    expect(String(callback.headers['set-cookie']).split(';', 1)[0]?.length).toBeLessThan(4096);
+  });
+
+  it('protege /api/admin exigindo admin do BFF', async () => {
+    const { app, upstream } = await createApp();
+    const denied = await app.inject({
+      method: 'GET',
+      url: '/api/admin/workspaces?take=1',
+      headers: { 'x-dev-user': 'student.user' },
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(upstream.requests).toHaveLength(0);
+    const allowed = await app.inject({
+      method: 'GET',
+      url: '/api/admin/workspaces?take=1',
+      headers: { 'x-dev-user': 'admin.user' },
+    });
+    expect(allowed.statusCode).toBe(200);
+  });
+});

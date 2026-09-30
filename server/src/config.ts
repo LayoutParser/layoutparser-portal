@@ -14,6 +14,9 @@ const DEFAULT_ADMIN_PATHS = [
   '/api/ai-metrics/*',
   '/api/layoutdatabase/refresh-cache',
   '/api/metrics',
+  // Visão sudo da API (somente leitura): exige admin do BFF além da checagem da própria API.
+  '/api/admin',
+  '/api/admin/*',
 ];
 
 export type NodeEnvironment = 'development' | 'test' | 'production';
@@ -49,6 +52,9 @@ export interface AppConfig {
   readonly trustedIdentityProviderHeader: string;
   readonly trustedIdentitySubjectHeader: string;
   readonly trustedIdentityTenantHeader: string;
+  readonly trustedIdentityEmailHeader: string;
+  // Tenants Entra cujo claim de e-mail é confiável (CSV em minúsculas). Vazio = nunca confiar.
+  readonly trustedEmailTenants: ReadonlySet<string>;
   readonly adminUsers: ReadonlySet<string>;
   readonly adminRoles: ReadonlySet<string>;
   readonly adminPaths: readonly string[];
@@ -370,12 +376,18 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     'x-layoutparser-identity-tenant',
     'BFF_TRUSTED_IDENTITY_TENANT_HEADER'
   );
+  const trustedIdentityEmailHeader = parseHeaderName(
+    environment.BFF_TRUSTED_IDENTITY_EMAIL_HEADER,
+    'x-layoutparser-identity-email',
+    'BFF_TRUSTED_IDENTITY_EMAIL_HEADER'
+  );
   const trustedIdentityHeaders = [
     trustedUserHeader,
     trustedRolesHeader,
     trustedIdentityProviderHeader,
     trustedIdentitySubjectHeader,
     trustedIdentityTenantHeader,
+    trustedIdentityEmailHeader,
   ];
   if (new Set(trustedIdentityHeaders).size !== trustedIdentityHeaders.length) {
     throw new ConfigError('Os headers confiáveis de identidade precisam ter nomes distintos.');
@@ -442,6 +454,8 @@ export function loadConfig(environment: NodeJS.ProcessEnv = process.env): AppCon
     trustedIdentityProviderHeader,
     trustedIdentitySubjectHeader,
     trustedIdentityTenantHeader,
+    trustedIdentityEmailHeader,
+    trustedEmailTenants: lowercaseSet(parseCsv(environment.BFF_TRUSTED_EMAIL_TENANTS)),
     adminUsers,
     adminRoles,
     adminPaths: parseAdminPaths(environment.BFF_ADMIN_PATHS),

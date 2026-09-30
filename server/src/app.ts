@@ -141,6 +141,8 @@ function rewriteProxyHeaders(
   delete rewritten[config.trustedIdentityProviderHeader];
   delete rewritten[config.trustedIdentitySubjectHeader];
   delete rewritten[config.trustedIdentityTenantHeader];
+  // Anti-spoof: o e-mail só pode vir da sessão verificada, nunca do cliente.
+  delete rewritten[config.trustedIdentityEmailHeader];
   delete rewritten[config.developmentUserHeader];
   delete rewritten[config.developmentRolesHeader];
   delete rewritten.authorization;
@@ -153,6 +155,9 @@ function rewriteProxyHeaders(
     rewritten[config.trustedIdentitySubjectHeader] = request.identity.subject;
     if (request.identity.tenantId) {
       rewritten[config.trustedIdentityTenantHeader] = request.identity.tenantId;
+    }
+    if (request.identity.email) {
+      rewritten[config.trustedIdentityEmailHeader] = request.identity.email;
     }
     if (request.identity.roles.length > 0) {
       rewritten[config.trustedRolesHeader] = request.identity.roles.join(',');

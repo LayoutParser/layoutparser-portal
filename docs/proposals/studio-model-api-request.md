@@ -95,8 +95,12 @@ Devolve o mesmo formato para qualquer engine, mais `eTag` e `rawHash` do artefat
 
 Pontos que o front precisa:
 
-1. **`required` e `dataType`** em cada nó, para montar o texto `Nome    (±, mín, máx)` ou
-   `Nome    (±, Tipo)` como no desktop. Se a API já calcula `display.text`, pode devolver pronto.
+1. **`required`, `dataType` e `display.text`** em cada nó. O texto do desktop é
+   `Nome    (±, mín, máx)` ou `Nome    (±, Tipo)`, mas o significado do `±` **não está confirmado**:
+   `-` casa com `IsRequired=false` (456/456), `+` nunca foi observado com `IsRequired=true`, e
+   `min>0` não produz `+` (446 linhas com `min>0` mostram `-`). O front **não deve derivar o `±`
+   de `required`**: a API devolve `display.text` pronto (e `required` à parte, como dado cru).
+   Enquanto a regra não for confirmada no desktop, o portal exibe só `(mín, máx)`/`(Tipo)`.
 2. **`type` completo:** `line`, `field`, `repeaterGroup`, `grouper`, `groupTag`, `tag`, `attribute`,
    `choice`, `sequence`, `jsonObject` (hoje só `element|attribute|group`).
 3. **Regra sem origem** é um vínculo distinto (`rules`), não uma ligação com origem vazia.
@@ -142,8 +146,8 @@ Pontos que o front precisa:
 
 ## Perguntas em aberto para a API
 
-1. O `display.text` (incluindo o `±`) será calculado na API ou o front monta a partir de
-   `required`/`dataType`/`minOccurs`/`maxOccurs`?
+1. Quem calcula o `±` do `display.text`? Pedimos que seja a API, e só depois da regra confirmada
+   (hoje `+` é NÃO CONFIRMADO). A API tem acesso ao que o front não tem?
 2. Critério do auto-mapeamento (`CreateAutoLinkMapping`): igualdade de nome? Queremos um
    `ops: autoLink` no futuro.
 3. Como resolver `I.`/`T.` quando há irmãos com o mesmo nome (85 casos nos dados reais)?

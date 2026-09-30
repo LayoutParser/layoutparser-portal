@@ -40,6 +40,14 @@ const WorkspaceSwitcher = () => {
     );
   }
 
+  if (workspaces.length === 0) {
+    return (
+      <Link to="/workspace" className="workspace-switcher workspace-switcher__link">
+        Sem workspace
+      </Link>
+    );
+  }
+
   return (
     <div className="workspace-switcher">
       <Link to="/workspace" className="workspace-switcher__link">

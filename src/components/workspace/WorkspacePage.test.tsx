@@ -71,4 +71,19 @@ describe('WorkspacePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Tentar novamente' }));
     expect(loadWorkspaces).toHaveBeenCalledWith(true);
   });
+
+  it('mostra o estado sem workspace quando a lista vem vazia', () => {
+    useWorkspaceStore.setState({ status: 'ready', workspaces: [], activeWorkspaceId: null });
+
+    render(
+      <MemoryRouter>
+        <WorkspacePage />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole('heading', { name: 'Você ainda não tem acesso a um workspace' })
+    ).toBeVisible();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
 });

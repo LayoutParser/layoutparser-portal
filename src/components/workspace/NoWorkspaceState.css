@@ -1,0 +1,8 @@
+.no-workspace-state h1:focus {
+  outline: none;
+}
+
+.no-workspace-state h1:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 4px;
+}

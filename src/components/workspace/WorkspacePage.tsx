@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useWorkspaceStore } from '../../store/useWorkspaceStore';
 import type { WorkspaceKind, WorkspaceRole } from '../../types/workspace';
+import NoWorkspaceState from './NoWorkspaceState';
 import './WorkspacePage.css';
 
 const roleLabels: Record<WorkspaceRole, string> = {
@@ -32,6 +33,10 @@ const WorkspacePage = () => {
         </section>
       </main>
     );
+  }
+
+  if (status === 'ready' && workspaces.length === 0) {
+    return <NoWorkspaceState />;
   }
 
   if (status === 'error' || !activeWorkspace) {

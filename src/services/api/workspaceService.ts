@@ -247,7 +247,10 @@ function parseLayoutTreeSide(value: unknown): LayoutTreeSide {
   if (!isRecord(value) || !Array.isArray(value.roots)) {
     throw invalidLayoutTree();
   }
-  return { roots: value.roots.map(parseLayoutTreeNode) };
+  const roots = value.roots.map(parseLayoutTreeNode);
+  return isNonEmptyString(value.unavailableReason)
+    ? { roots, unavailableReason: value.unavailableReason }
+    : { roots };
 }
 
 function parseLayoutTreeRuleLink(value: unknown): LayoutTreeRuleLink {

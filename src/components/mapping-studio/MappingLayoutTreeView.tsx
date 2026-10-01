@@ -45,6 +45,13 @@ const diagnosticLabels: Record<ConnectUsDiagnostic['code'], string> = {
     'Layout de destino indisponível: a API não devolveu os nós; as ligações não podem ser verificadas',
 };
 
+const unavailableReasonLabels: Record<string, string> = {
+  'layout-not-found': 'o layout não foi encontrado na API',
+  'layout-unreadable': 'o layout está ilegível ou não possui elementos',
+  'unsupported-kind': 'o tipo de layout não é suportado',
+  'xsd-unresolved': 'o XSD não pôde ser resolvido',
+};
+
 const kindLabels: Record<LayoutTreeNodeKind, string> = {
   element: 'Elemento',
   attribute: 'Atributo',
@@ -437,7 +444,17 @@ const MappingLayoutTreeView = ({
         <ul className="mapping-layout-tree-unrepresented" role="status">
           {diagnostics.map(diagnostic => (
             <li key={`${diagnostic.code}:${diagnostic.id}`}>
-              {diagnosticLabels[diagnostic.code]} (<code>{diagnostic.id}</code>)
+              {diagnostic.reason && unavailableReasonLabels[diagnostic.reason]
+                ? `${diagnostic.code === 'SOURCE_LAYOUT_UNAVAILABLE' ? 'Layout de origem' : 'Layout de destino'} indisponível: ${unavailableReasonLabels[diagnostic.reason]}; as ligações não podem ser verificadas`
+                : diagnosticLabels[diagnostic.code]}{' '}
+              (<code>{diagnostic.id}</code>
+              {diagnostic.reason && (
+                <>
+                  {' · '}
+                  <code data-testid="unavailable-reason">{diagnostic.reason}</code>
+                </>
+              )}
+              )
             </li>
           ))}
         </ul>

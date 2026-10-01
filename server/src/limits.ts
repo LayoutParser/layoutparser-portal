@@ -2,7 +2,7 @@ import { Transform, type TransformCallback } from 'node:stream';
 
 import {
   Busboy as createBusboy,
-  type Busboy as BusboyInstance,
+  type BusboyInstance,
   type BusboyFileStream,
 } from '@fastify/busboy';
 

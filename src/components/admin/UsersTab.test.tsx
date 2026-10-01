@@ -78,6 +78,8 @@ function seedWorkspace(kind: 'personal' | 'organization') {
   });
 }
 
+const openInvite = () => fireEvent.click(screen.getByRole('button', { name: 'Adicionar membro' }));
+
 describe('UsersTab', () => {
   beforeEach(() => {
     Object.values(service).forEach(fn => fn.mockReset());
@@ -134,9 +136,7 @@ describe('UsersTab', () => {
     seedWorkspace('organization');
     service.listMembers.mockResolvedValue([owner]);
     render(<UsersTab />);
-    expect(
-      await screen.findByText('Só você está neste workspace. Adicione alguém acima.')
-    ).toBeVisible();
+    expect(await screen.findByText('Só você está neste workspace. Convide alguém.')).toBeVisible();
   });
 
   it('valida e-mail, normaliza e adiciona; mostra sucesso', async () => {
@@ -146,6 +146,7 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
+    openInvite();
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     const input = screen.getByLabelText('E-mail');
     expect(input).toHaveAttribute('aria-invalid', 'true');
@@ -174,6 +175,7 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
+    openInvite();
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'a@b.co' } });
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Já é membro.');
@@ -224,6 +226,40 @@ describe('UsersTab', () => {
       target: { value: 'reviewer' },
     });
     await waitFor(() => expect(service.updateRole).toHaveBeenCalledWith('w1', 'i1', 'reviewer'));
+  });
+
+  it('filtra por e-mail, papel e status, com contagem e limpeza dos filtros', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockResolvedValue([owner, guest]);
+    render(<UsersTab />);
+    await screen.findByRole('table');
+    expect(screen.getByText('2 membros')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Buscar membro'), { target: { value: 'convidada' } });
+    expect(screen.getByText('1 de 2 membros')).toBeVisible();
+    expect(screen.queryByText('Dona')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Filtrar por status'), { target: { value: 'active' } });
+    expect(screen.getByText('Nenhum membro corresponde aos filtros.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(screen.getByText('2 membros')).toBeVisible();
+  });
+
+  it('mostra iniciais do e-mail quando não há displayName', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockResolvedValue([owner, guest]);
+    render(<UsersTab />);
+    await screen.findByRole('table');
+    expect(screen.getByText('CO')).toBeInTheDocument();
+  });
+
+  it('oferece tentar novamente quando a lista de membros falha', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockRejectedValueOnce(new Error('Falhou.'));
+    service.listMembers.mockResolvedValue([owner]);
+    render(<UsersTab />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Tentar novamente' }));
+    expect(await screen.findByText('1 membro')).toBeVisible();
   });
 
   it('não chama a API em workspace pessoal', () => {
@@ -326,6 +362,8 @@ describe('UsersTab', () => {
       fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
       await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
       service.addMember.mockResolvedValue({ ...guest, email: 'nova@example.com' });
+      openInvite();
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       await waitFor(() =>
@@ -341,6 +379,7 @@ describe('UsersTab', () => {
       service.addMember.mockRejectedValue(new MemberRequestError('conflict', 'x'));
       render(<UsersTab />, { wrapper: MemoryRouter });
       await screen.findByLabelText('Workspace');
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       const alert = await screen.findByRole('alert');
@@ -354,6 +393,7 @@ describe('UsersTab', () => {
       service.addMember.mockRejectedValue(new MemberRequestError('forbidden', 'x'));
       render(<UsersTab />, { wrapper: MemoryRouter });
       fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       expect((await screen.findByRole('alert')).textContent).toBe(
@@ -373,6 +413,7 @@ describe('UsersTab', () => {
       render(<UsersTab />, { wrapper: MemoryRouter });
       fireEvent.click(await screen.findByRole('button', { name: 'p3@x.com' }));
       expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('p3@x.com');
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
       fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
       await waitFor(() =>
         expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 50, take: 50 })
@@ -454,7 +495,7 @@ describe('UsersTab', () => {
         );
         expect(await screen.findByText('Workspace promovido a time.')).toBeTruthy();
         await waitFor(() => expect(workspaces.getCurrentWorkspaces).toHaveBeenCalled());
-        expect(await screen.findByLabelText('E-mail')).toBeTruthy();
+        expect(await screen.findByRole('button', { name: 'Adicionar membro' })).toBeTruthy();
         expect(screen.queryByLabelText('Nome do workspace')).toBeNull();
       });
 

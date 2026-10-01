@@ -22,11 +22,11 @@
 
 .users-tab__field-error,
 .users-tab__alert {
-  color: var(--color-danger, #b00020);
+  color: var(--color-danger-text);
 }
 
 .users-tab__notice {
-  color: var(--color-success, #1b6e2e);
+  color: var(--color-success-text);
 }
 
 .users-tab__table-wrap {
@@ -48,7 +48,7 @@
 .users-tab__table td {
   text-align: left;
   padding: var(--spacing-sm);
-  border-bottom: 1px solid var(--color-border, #ddd);
+  border-bottom: 1px solid var(--color-border);
 }
 
 .users-tab__modal-actions {
@@ -80,7 +80,7 @@
   background: none;
   border: 0;
   padding: 0;
-  color: var(--color-primary, #0b5cad);
+  color: var(--color-accent);
   text-decoration: underline;
   cursor: pointer;
   font: inherit;
@@ -99,11 +99,192 @@
   gap: var(--spacing-sm);
   margin-bottom: var(--spacing-md);
   padding: var(--spacing-md);
-  border: 1px solid var(--color-border, #ddd);
+  border: 1px solid var(--color-border);
   border-radius: 6px;
 }
 
 .users-tab__promote h3,
 .users-tab__promote p {
   margin: 0;
+}
+
+/* Cartão de dados no estilo console administrativo */
+.users-tab__card {
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.users-tab__card-header,
+.users-tab__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-md);
+}
+
+.users-tab__card-header {
+  justify-content: space-between;
+}
+
+.users-tab__card-header h3,
+.users-tab__hint {
+  margin: 0;
+}
+
+.users-tab__hint,
+.users-tab__count,
+.users-tab__email {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.users-tab__search {
+  flex: 1 1 220px;
+  max-width: 360px;
+}
+
+.users-tab__toolbar-action {
+  margin-left: auto;
+}
+
+.users-tab__field label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.users-tab__field input,
+.users-tab__field select,
+.users-tab__table select {
+  min-height: 36px;
+  padding: 0 var(--spacing-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font: inherit;
+}
+
+.users-tab__field input:focus-visible,
+.users-tab__field select:focus-visible,
+.users-tab__table select:focus-visible,
+.users-tab__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.users-tab__table-wrap {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+/* Cabeçalho fixo ao rolar a tabela */
+.users-tab__table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.users-tab__table tbody tr:hover {
+  background: var(--color-surface-hover);
+}
+
+.users-tab__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.users-tab__identity-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.users-tab__name {
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-strong);
+}
+
+.users-tab__state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-lg) var(--spacing-md);
+  text-align: center;
+  justify-content: center;
+}
+
+.users-tab__count {
+  margin-right: auto;
+}
+
+.users-tab__pager {
+  align-items: center;
+}
+
+.users-tab__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.users-tab__skeleton-row {
+  display: flex;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm);
+}
+
+.users-tab__skeleton-cell {
+  flex: 1;
+  height: 16px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-alt),
+    var(--color-surface-hover),
+    var(--color-surface-alt)
+  );
+  background-size: 200% 100%;
+  animation: users-tab-shimmer 1.2s linear infinite;
+}
+
+@keyframes users-tab-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .users-tab__skeleton-cell {
+    animation: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .users-tab__toolbar-action {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .users-tab__toolbar-action .btn {
+    width: 100%;
+  }
+
+  .users-tab__search {
+    max-width: none;
+  }
 }

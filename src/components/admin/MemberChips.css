@@ -1,0 +1,44 @@
+.member-avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-info-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-bold);
+}
+
+.member-chip {
+  display: inline-block;
+  padding: 2px var(--spacing-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-alt);
+  color: var(--color-text);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.member-chip--role-owner {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.member-chip--role-fiscal_admin {
+  background: var(--color-info-bg);
+  color: var(--color-info-text);
+}
+
+.member-chip--active {
+  background: var(--color-success-bg);
+  color: var(--color-success-text);
+}
+
+.member-chip--pending {
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+}

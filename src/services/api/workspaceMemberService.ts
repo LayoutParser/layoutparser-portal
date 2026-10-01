@@ -52,15 +52,20 @@ function toMemberError(error: unknown, listing = false): MemberRequestError {
   }
 }
 
+/** A API serializa com WhenWritingNull: campo anulável chega ausente, null ou string. */
+export function isOptionalString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === 'string';
+}
+
 export function isMember(value: unknown): value is WorkspaceMember {
   if (typeof value !== 'object' || value === null) return false;
   const member = value as Record<string, unknown>;
   return (
     typeof member.userId === 'string' &&
-    typeof member.email === 'string' &&
+    isOptionalString(member.email) &&
     typeof member.role === 'string' &&
     (member.status === 'active' || member.status === 'pending') &&
-    (member.displayName === null || typeof member.displayName === 'string')
+    isOptionalString(member.displayName)
   );
 }
 

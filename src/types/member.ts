@@ -9,8 +9,9 @@ export type MemberStatus = 'active' | 'pending';
 /** Para status 'pending', `userId` é o id do CONVITE (usar em PATCH/DELETE). */
 export interface WorkspaceMember {
   userId: string;
-  displayName: string | null;
-  email: string;
+  /** A API omite campos nulos: `displayName` e `email` podem faltar. */
+  displayName?: string | null;
+  email?: string | null;
   role: MemberRole;
   status: MemberStatus;
   createdAt: string;
@@ -33,7 +34,8 @@ export interface AdminWorkspaceSummary {
 
 export interface AdminUserSummary {
   userId: string;
-  email: string;
+  /** Ausente quando a pessoa nunca informou e-mail. */
+  email?: string | null;
   workspaceCount: number;
   createdAt: string;
 }

@@ -2,10 +2,18 @@ import type { MemberRole, MemberStatus } from '../../types/member';
 import { ROLE_LABELS, initialsOf } from './memberLabels';
 import './MemberChips.css';
 
-export function Avatar({ displayName, email }: { displayName?: string | null; email: string }) {
+export function Avatar({
+  displayName,
+  email,
+  userId,
+}: {
+  displayName?: string | null;
+  email?: string | null;
+  userId?: string;
+}) {
   return (
     <span className="member-avatar" aria-hidden="true">
-      {initialsOf(displayName, email)}
+      {initialsOf(displayName, email, userId)}
     </span>
   );
 }

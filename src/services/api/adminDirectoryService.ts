@@ -6,7 +6,7 @@ import type {
   WorkspaceMember,
 } from '../../types/member';
 import apiClient from '../api';
-import { isMember } from './workspaceMemberService';
+import { isMember, isOptionalString } from './workspaceMemberService';
 
 export type AdminRequestErrorKind = 'unavailable' | 'failed';
 
@@ -49,7 +49,7 @@ function isAdminUser(value: unknown): value is AdminUserSummary {
   const item = value as Record<string, unknown>;
   return (
     typeof item.userId === 'string' &&
-    typeof item.email === 'string' &&
+    isOptionalString(item.email) &&
     typeof item.workspaceCount === 'number'
   );
 }

@@ -15,7 +15,7 @@ import Modal from '../shared/Modal';
 import Toast from '../shared/Toast';
 import { Avatar, RoleChip, StatusChip } from './MemberChips';
 import MemberDrawer from './MemberDrawer';
-import { ROLE_LABELS } from './memberLabels';
+import { ROLE_LABELS, displayLabel, emailOrId } from './memberLabels';
 import RowActionsMenu from './RowActionsMenu';
 import WorkspaceCombobox from './WorkspaceCombobox';
 import './UsersTab.css';
@@ -56,7 +56,13 @@ function RegisteredUsers({ onPick }: { onPick: (email: string) => void }) {
   // A API não filtra por e-mail: a busca vale para a página carregada.
   const visible = useMemo(() => {
     const term = query.trim().toLowerCase();
-    return term ? users.filter(user => user.email.toLowerCase().includes(term)) : users;
+    return term
+      ? users.filter(
+          user =>
+            (user.email ?? '').toLowerCase().includes(term) ||
+            user.userId.toLowerCase().includes(term)
+        )
+      : users;
   }, [users, query]);
 
   return (
@@ -114,15 +120,19 @@ function RegisteredUsers({ onPick }: { onPick: (email: string) => void }) {
                 <tr key={user.userId}>
                   <td>
                     <span className="users-tab__identity">
-                      <Avatar email={user.email} />
-                      <button
-                        type="button"
-                        className="users-tab__link"
-                        title="Convidar este e-mail para o workspace selecionado"
-                        onClick={() => onPick(user.email)}
-                      >
-                        {user.email}
-                      </button>
+                      <Avatar email={user.email} userId={user.userId} />
+                      {user.email ? (
+                        <button
+                          type="button"
+                          className="users-tab__link"
+                          title="Convidar este e-mail para o workspace selecionado"
+                          onClick={() => onPick(user.email as string)}
+                        >
+                          {user.email}
+                        </button>
+                      ) : (
+                        <span className="users-tab__email">{emailOrId(user)}</span>
+                      )}
                     </span>
                   </td>
                   <td>{user.workspaceCount}</td>
@@ -359,7 +369,7 @@ const UsersTab = () => {
         (roleFilter === 'all' || member.role === roleFilter) &&
         (statusFilter === 'all' || member.status === statusFilter) &&
         (!term ||
-          member.email.toLowerCase().includes(term) ||
+          (member.email ?? '').toLowerCase().includes(term) ||
           (member.displayName ?? '').toLowerCase().includes(term))
     );
   }, [members, query, roleFilter, statusFilter]);
@@ -571,7 +581,11 @@ const UsersTab = () => {
                     <tr key={memberKey(member)}>
                       <td>
                         <span className="users-tab__identity">
-                          <Avatar displayName={member.displayName} email={member.email} />
+                          <Avatar
+                            displayName={member.displayName}
+                            email={member.email}
+                            userId={member.userId}
+                          />
                           <span className="users-tab__identity-text">
                             <button
                               type="button"
@@ -581,10 +595,10 @@ const UsersTab = () => {
                                 setDrawer({ key: memberKey(member), focusRole: false })
                               }
                             >
-                              {member.displayName ?? member.email}
+                              {displayLabel(member)}
                             </button>
                             {member.displayName && (
-                              <span className="users-tab__email">{member.email}</span>
+                              <span className="users-tab__email">{emailOrId(member)}</span>
                             )}
                           </span>
                         </span>
@@ -598,7 +612,7 @@ const UsersTab = () => {
                       <td>
                         {member.role !== 'owner' && (
                           <RowActionsMenu
-                            label={`Ações de ${member.email}`}
+                            label={`Ações de ${displayLabel(member)}`}
                             disabled={busy}
                             actions={[
                               {
@@ -737,8 +751,8 @@ const UsersTab = () => {
       >
         <p>
           {pendingInvite
-            ? `Cancelar o convite de ${pendingRemoval?.email} para o workspace ${workspace.name}?`
-            : `Remover ${pendingRemoval?.email} do workspace ${workspace.name}? A pessoa perde o acesso imediatamente.`}
+            ? `Cancelar o convite de ${pendingRemoval ? displayLabel(pendingRemoval) : ''} para o workspace ${workspace.name}?`
+            : `Remover ${pendingRemoval ? displayLabel(pendingRemoval) : ''} do workspace ${workspace.name}? A pessoa perde o acesso imediatamente.`}
         </p>
         <div className="users-tab__modal-actions">
           <button type="button" ref={cancelRef} className="btn btn-secondary" onClick={closeModal}>

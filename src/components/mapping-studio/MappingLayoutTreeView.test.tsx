@@ -299,6 +299,16 @@ describe('MappingLayoutTreeView', () => {
     expect(vinculos[0].textContent).toMatch(/^.*\S+_\S+$/);
   });
 
+  it('marca com o clipe roxo o nó de destino que possui vínculo', () => {
+    render(
+      <MappingLayoutTreeView source={source} target={target} rules={rules} limitations={[]} />
+    );
+
+    const clips = screen.getAllByTestId('vinculo-clip');
+    expect(clips.length).toBeGreaterThan(0);
+    expect(clips[0]).toHaveAccessibleName(/Possui \d* ?vínculos?/);
+  });
+
   describe('unavailableReason', () => {
     const cases: [string, RegExp][] = [
       ['layout-not-found', /não foi encontrado na API/],

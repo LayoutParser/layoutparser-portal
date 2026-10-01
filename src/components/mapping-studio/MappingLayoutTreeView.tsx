@@ -348,6 +348,19 @@ const MappingLayoutTreeView = ({
             {kindIcons[node.kind]}
           </span>
           <span className="mapping-layout-tree-name">{node.name}</span>
+          {side === 'target' && vinculos.length > 0 && (
+            <span
+              className="mapping-layout-tree-clip"
+              data-testid="vinculo-clip"
+              role="img"
+              aria-label={
+                vinculos.length === 1 ? 'Possui 1 vínculo' : `Possui ${vinculos.length} vínculos`
+              }
+              title="Este nó possui vínculo"
+            >
+              📎
+            </span>
+          )}
           <span className="mapping-layout-tree-cardinality">{formatNodeCardinality(node)}</span>
           {side === 'source' && hasRule && (
             <span className="mapping-layout-tree-rule-badges">

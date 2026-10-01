@@ -142,6 +142,20 @@ const MappingReleaseCatalog = ({ workspaceId }: { workspaceId: string }) => {
                 >
                   {release.validationBasis}
                 </span>
+                {release.generatedCoverage?.linkPct && (
+                  <span className="mapping-catalog-coverage">
+                    {' '}
+                    · links {release.generatedCoverage.linkPct}
+                    {release.generatedCoverage.rulePct &&
+                      ` · regras ${release.generatedCoverage.rulePct}`}
+                  </span>
+                )}
+                {release.coverage && (
+                  <span className="mapping-catalog-coverage">
+                    {' '}
+                    · cobertura {release.coverage.percent}%
+                  </span>
+                )}
               </div>
             </li>
           ) : (

@@ -39,6 +39,10 @@ const diagnosticLabels: Record<ConnectUsDiagnostic['code'], string> = {
   ORPHAN_LINK: 'Vínculo órfão: aponta para um nó que não existe no layout',
   TARGET_HAS_MULTIPLE_LINKS: 'Destino com mais de uma ligação',
   TARGET_HAS_LINK_AND_RULE: 'Destino com ligação e regra ao mesmo tempo',
+  SOURCE_LAYOUT_UNAVAILABLE:
+    'Layout de origem indisponível: a API não devolveu os nós; as ligações não podem ser verificadas',
+  TARGET_LAYOUT_UNAVAILABLE:
+    'Layout de destino indisponível: a API não devolveu os nós; as ligações não podem ser verificadas',
 };
 
 const kindLabels: Record<LayoutTreeNodeKind, string> = {

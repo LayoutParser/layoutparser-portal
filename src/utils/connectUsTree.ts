@@ -19,7 +19,11 @@ export interface ConnectUsVinculo {
 }
 
 export type ConnectUsDiagnosticCode =
-  'ORPHAN_LINK' | 'TARGET_HAS_MULTIPLE_LINKS' | 'TARGET_HAS_LINK_AND_RULE';
+  | 'ORPHAN_LINK'
+  | 'TARGET_HAS_MULTIPLE_LINKS'
+  | 'TARGET_HAS_LINK_AND_RULE'
+  | 'SOURCE_LAYOUT_UNAVAILABLE'
+  | 'TARGET_LAYOUT_UNAVAILABLE';
 
 export interface ConnectUsDiagnostic {
   code: ConnectUsDiagnosticCode;
@@ -55,6 +59,18 @@ export function buildVinculos(
   const targetIndex = indexNodes(target.roots);
   const byTarget = new Map<string, ConnectUsVinculo[]>();
   const diagnostics: ConnectUsDiagnostic[] = [];
+
+  // Lado sem nós = layout não servido pela API (ex.: destino XML NF-e/SEFAZ, `kind: "unknown"`).
+  // Sem a árvore não dá para dizer que a ligação é órfã: um único aviso, sem falso positivo.
+  if (sourceIndex.size === 0 || targetIndex.size === 0) {
+    if (sourceIndex.size === 0) {
+      diagnostics.push({ code: 'SOURCE_LAYOUT_UNAVAILABLE', id: 'origem' });
+    }
+    if (targetIndex.size === 0) {
+      diagnostics.push({ code: 'TARGET_LAYOUT_UNAVAILABLE', id: 'destino' });
+    }
+    return { byTarget, diagnostics };
+  }
 
   links.forEach(link => {
     const sourceNode = sourceIndex.get(link.sourceElementGuid);

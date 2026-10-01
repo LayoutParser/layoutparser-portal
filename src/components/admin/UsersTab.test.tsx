@@ -570,7 +570,8 @@ describe('UsersTab', () => {
       await waitFor(() =>
         expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 0, take: 50 })
       );
-    });
+      // Renderiza 50 linhas e pagina duas vezes: sob carga excede o timeout padrão de 5s.
+    }, 20_000);
 
     it('lista de usuários indisponível (404/503) mostra aviso sem quebrar o resto', async () => {
       seedSudo();

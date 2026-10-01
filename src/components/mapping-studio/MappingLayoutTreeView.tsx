@@ -97,6 +97,15 @@ function findNode(nodes: LayoutTreeNode[], guid: string): LayoutTreeNode | null 
   return null;
 }
 
+function findPath(nodes: LayoutTreeNode[], guid: string): LayoutTreeNode[] | null {
+  for (const node of nodes) {
+    if (node.guid === guid) return [node];
+    const found = findPath(node.children, guid);
+    if (found) return [node, ...found];
+  }
+  return null;
+}
+
 function collectMatches(
   nodes: LayoutTreeNode[],
   term: string,
@@ -224,6 +233,45 @@ const MappingLayoutTreeView = ({
 
   const collapseAll = () => setExpanded(new Set());
 
+  // Clipe roxo do ConnectUs: leva ao nó do outro lado ligado por este vínculo. Com mais de uma
+  // ligação, cada clique segue para a próxima (circular).
+  const jumpIndexRef = useRef(new Map<string, number>());
+  const counterpartsOf = (side: Side, guid: string): string[] => {
+    const links = rules.filter(rule => rule.sourceElementGuid !== '');
+    const guids =
+      side === 'source'
+        ? links.filter(link => link.sourceElementGuid === guid).map(link => link.targetElementGuid)
+        : links.filter(link => link.targetElementGuid === guid).map(link => link.sourceElementGuid);
+    return Array.from(new Set(guids));
+  };
+
+  const jumpToCounterpart = (side: Side, guid: string) => {
+    const otherSide: Side = side === 'source' ? 'target' : 'source';
+    const otherRoots = otherSide === 'source' ? source.roots : target.roots;
+    const candidates = counterpartsOf(side, guid).filter(candidate =>
+      Boolean(findNode(otherRoots, candidate))
+    );
+    if (candidates.length === 0) return;
+    const key = nodeKey(side, guid);
+    const index = (jumpIndexRef.current.get(key) ?? -1) + 1;
+    const destination = candidates[index % candidates.length];
+    jumpIndexRef.current.set(key, index % candidates.length);
+
+    const path = findPath(otherRoots, destination) ?? [];
+    setSearch('');
+    setExpanded(previous => {
+      const next = new Set(previous);
+      path.slice(0, -1).forEach(ancestor => next.add(nodeKey(otherSide, ancestor.guid)));
+      return next;
+    });
+    setSelected({ side: otherSide, guid: destination });
+    requestAnimationFrame(() => {
+      const element = itemRefs.current.get(nodeKey(otherSide, destination));
+      element?.scrollIntoView?.({ block: 'center' });
+      element?.focus();
+    });
+  };
+
   const focusItem = (side: Side, guid: string) => {
     requestAnimationFrame(() => itemRefs.current.get(nodeKey(side, guid))?.focus());
   };
@@ -278,6 +326,9 @@ const MappingLayoutTreeView = ({
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       setSelected({ side, guid: node.guid });
+    } else if (event.key.toLowerCase() === 'l') {
+      event.preventDefault();
+      jumpToCounterpart(side, node.guid);
     }
   };
 
@@ -348,6 +399,36 @@ const MappingLayoutTreeView = ({
             {kindIcons[node.kind]}
           </span>
           <span className="mapping-layout-tree-name">{node.name}</span>
+          {isLinked && (
+            <span
+              className="mapping-layout-tree-clip"
+              data-testid="vinculo-clip"
+              role="button"
+              tabIndex={-1}
+              aria-label={
+                side === 'target'
+                  ? 'Ir para o nó de origem ligado (atalho: L)'
+                  : 'Ir para o nó de destino ligado (atalho: L)'
+              }
+              title={
+                side === 'target'
+                  ? 'Vínculo: clique para ir ao nó de origem'
+                  : 'Vínculo: clique para ir ao nó de destino'
+              }
+              onClick={event => {
+                event.stopPropagation();
+                jumpToCounterpart(side, node.guid);
+              }}
+              onKeyDown={event => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                event.preventDefault();
+                event.stopPropagation();
+                jumpToCounterpart(side, node.guid);
+              }}
+            >
+              📎
+            </span>
+          )}
           <span className="mapping-layout-tree-cardinality">{formatNodeCardinality(node)}</span>
           {side === 'source' && hasRule && (
             <span className="mapping-layout-tree-rule-badges">

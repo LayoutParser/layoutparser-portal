@@ -264,6 +264,13 @@
   color: var(--color-accent);
 }
 
+/* Clipe roxo do ConnectUs: marca no nó de destino que há vínculo (ligação ou regra) abaixo dele. */
+.mapping-layout-tree-clip {
+  margin-left: 0.4ch;
+  font-size: 0.85em;
+  filter: hue-rotate(250deg) saturate(1.6);
+}
+
 .mapping-layout-tree-vinculo {
   cursor: default;
   color: var(--color-text-muted);

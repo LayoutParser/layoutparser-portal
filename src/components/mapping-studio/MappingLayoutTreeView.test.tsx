@@ -299,6 +299,42 @@ describe('MappingLayoutTreeView', () => {
     expect(vinculos[0].textContent).toMatch(/^.*\S+_\S+$/);
   });
 
+  it('marca com o clipe roxo os nós ligados nos dois lados e navega entre eles', () => {
+    render(
+      <MappingLayoutTreeView source={source} target={target} rules={rules} limitations={[]} />
+    );
+
+    const clips = screen.getAllByTestId('vinculo-clip');
+    const targetClip = clips.find(clip =>
+      clip.getAttribute('aria-label')?.includes('nó de origem')
+    );
+    const sourceClip = clips.find(clip =>
+      clip.getAttribute('aria-label')?.includes('nó de destino')
+    );
+    expect(targetClip).toBeDefined();
+    expect(sourceClip).toBeDefined();
+
+    // Clicar no clipe do destino seleciona o nó de origem ligado (e vice-versa).
+    fireEvent.click(targetClip as HTMLElement);
+    expect(
+      screen.getAllByRole('treeitem').some(item => item.getAttribute('aria-selected') === 'true')
+    ).toBe(true);
+    const selectedAfterTarget = screen
+      .getAllByRole('treeitem')
+      .find(item => item.getAttribute('aria-selected') === 'true');
+    expect(
+      selectedAfterTarget?.closest('[aria-label="Árvore do layout de origem"]')
+    ).not.toBeNull();
+
+    fireEvent.click(sourceClip as HTMLElement);
+    const selectedAfterSource = screen
+      .getAllByRole('treeitem')
+      .find(item => item.getAttribute('aria-selected') === 'true');
+    expect(
+      selectedAfterSource?.closest('[aria-label="Árvore do layout de destino"]')
+    ).not.toBeNull();
+  });
+
   describe('unavailableReason', () => {
     const cases: [string, RegExp][] = [
       ['layout-not-found', /não foi encontrado na API/],

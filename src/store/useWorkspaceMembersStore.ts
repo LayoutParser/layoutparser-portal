@@ -107,7 +107,7 @@ export const useWorkspaceMembersStore = create<WorkspaceMembersState>((set, get)
           busy: false,
           notice:
             member.status === 'pending'
-              ? `Convite criado para ${member.email}`
+              ? `Convite criado para ${member.email ?? request.email}`
               : 'Pessoa adicionada',
         });
         await refresh(workspaceId);

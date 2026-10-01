@@ -29,6 +29,8 @@ export interface ConnectUsDiagnostic {
   code: ConnectUsDiagnosticCode;
   /** GUID do destino (ou do vínculo órfão). */
   id: string;
+  /** Razão informada pela API para o lado indisponível (apenas diagnósticos *_LAYOUT_UNAVAILABLE). */
+  reason?: string;
 }
 
 /** Cardinalidade como no texto do nó do ConnectUs: `(mín, máx)`. `±` não vem no contrato. */
@@ -64,10 +66,18 @@ export function buildVinculos(
   // Sem a árvore não dá para dizer que a ligação é órfã: um único aviso, sem falso positivo.
   if (sourceIndex.size === 0 || targetIndex.size === 0) {
     if (sourceIndex.size === 0) {
-      diagnostics.push({ code: 'SOURCE_LAYOUT_UNAVAILABLE', id: 'origem' });
+      diagnostics.push({
+        code: 'SOURCE_LAYOUT_UNAVAILABLE',
+        id: 'origem',
+        ...(source.unavailableReason ? { reason: source.unavailableReason } : {}),
+      });
     }
     if (targetIndex.size === 0) {
-      diagnostics.push({ code: 'TARGET_LAYOUT_UNAVAILABLE', id: 'destino' });
+      diagnostics.push({
+        code: 'TARGET_LAYOUT_UNAVAILABLE',
+        id: 'destino',
+        ...(target.unavailableReason ? { reason: target.unavailableReason } : {}),
+      });
     }
     return { byTarget, diagnostics };
   }

@@ -227,6 +227,20 @@ describe('MappingStudioPage', () => {
           status: 'ready',
           validationBasis: 'declared_dsl',
           coverage: null,
+          generatedCoverage: {
+            generatorVersion: '2',
+            compiles: true,
+            compileError: null,
+            linksCovered: 244,
+            linksTotal: 244,
+            linkPct: '100%',
+            rulesCovered: 46,
+            rulesTotal: 47,
+            rulePct: '97.9%',
+            provenanceEntries: 317,
+            linkMappingsSemFolha: 0,
+            limitations: [],
+          },
           generatedAt: '2026-09-20T12:00:00Z',
           correlationId: 'correlation-2',
           detailUrl: '/api/workspaces/workspace-1/mappings/mapper-guid-1/generated-transformation',
@@ -242,6 +256,7 @@ describe('MappingStudioPage', () => {
 
     expect(await screen.findByText('MAP_CNHI_MQSERIES_SEND_ENV_TXT_XML_NFE')).toBeVisible();
     expect(screen.getByText('declared_dsl')).toBeVisible();
+    expect(screen.getByText(/links 100% · regras 97.9%/)).toBeVisible();
     expect(
       screen.queryByRole('link', { name: /MAP_CNHI_MQSERIES_SEND_ENV_TXT_XML_NFE/ })
     ).not.toBeInTheDocument();

@@ -235,6 +235,26 @@ describe('workspaceService', () => {
   });
 
   describe('getMappingLayoutTree', () => {
+    it('mapeia unavailableReason (inclusive desconhecido) e omite quando ausente', async () => {
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: {
+          source: { kind: 'text', roots: [], unavailableReason: 'layout-not-found' },
+          target: { kind: 'xml', roots: [], unavailableReason: 'razao-futura' },
+          rules: [],
+          limitations: [],
+        },
+      });
+      const result = await workspaceService.getMappingLayoutTree('w', 'm');
+      expect(result.source).toEqual({ roots: [], unavailableReason: 'layout-not-found' });
+      expect(result.target).toEqual({ roots: [], unavailableReason: 'razao-futura' });
+
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: { source: { roots: [] }, target: { roots: [] }, rules: [], limitations: [] },
+      });
+      const plain = await workspaceService.getMappingLayoutTree('w', 'm');
+      expect(plain.source).toEqual({ roots: [] });
+    });
+
     it('busca a árvore dupla de um mapping por GUID (payload real usa elementGuid)', async () => {
       const payload = {
         mapperGuid: 'MAP_f1a6453f-1b2a-44db-b58d-fad5be74bba7',

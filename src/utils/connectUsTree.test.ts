@@ -66,4 +66,24 @@ describe('connectUsTree', () => {
     expect(byTarget.size).toBe(0);
     expect(diagnostics).toEqual([{ code: 'TARGET_LAYOUT_UNAVAILABLE', id: 'destino' }]);
   });
+
+  it.each(['layout-not-found', 'layout-unreadable', 'unsupported-kind', 'xsd-unresolved'])(
+    'propaga a razão %s nos diagnósticos de origem e destino',
+    reason => {
+      const { diagnostics } = buildVinculos(
+        { roots: [], unavailableReason: reason },
+        { roots: [], unavailableReason: reason },
+        []
+      );
+      expect(diagnostics).toEqual([
+        { code: 'SOURCE_LAYOUT_UNAVAILABLE', id: 'origem', reason },
+        { code: 'TARGET_LAYOUT_UNAVAILABLE', id: 'destino', reason },
+      ]);
+    }
+  );
+
+  it('emite o diagnóstico sem razão quando a árvore vem vazia sem unavailableReason', () => {
+    const { diagnostics } = buildVinculos({ roots: [] }, { roots: [node('t', 'T')] }, []);
+    expect(diagnostics).toEqual([{ code: 'SOURCE_LAYOUT_UNAVAILABLE', id: 'origem' }]);
+  });
 });

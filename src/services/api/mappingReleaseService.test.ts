@@ -406,10 +406,64 @@ describe('mappingReleaseService', () => {
       status: 'ready',
       validationBasis: 'declared_dsl',
       coverage: { percent: 92, uncovered: ['NFe/infNFe/dest/CNPJ'] },
+      generatedCoverage: null,
       generatedAt: '2026-09-20T12:00:00Z',
       correlationId: 'correlation-2',
       detailUrl: '/api/workspaces/workspace-1/mappings/mapper-guid-1/generated-transformation',
     });
+  });
+
+  it('aceita cobertura do gerador v2 (linkPct/rulePct, sem percent/uncovered)', async () => {
+    const autoItem = (index: number, coverage: Record<string, unknown>) => ({
+      origin: 'auto_generated',
+      mapperGuid: `mapper-guid-${index}`,
+      mapperName: `MAP_SINTETICO_${index}`,
+      status: 'ready',
+      validationBasis: 'declared_dsl',
+      coverage,
+      generatedAt: '2026-09-20T12:00:00Z',
+      correlationId: `correlation-${index}`,
+      detailUrl: `/api/workspaces/workspace-1/mappings/mapper-guid-${index}/generated-transformation`,
+    });
+    const v2 = {
+      generatorVersion: '2',
+      shell: { rootElement: 'Root', attributes: [] },
+      limitations: ['limitação sintética'],
+      compiles: true,
+      linksCovered: 244,
+      linksTotal: 244,
+      linkPct: '100%',
+      rulesCovered: 46,
+      rulesTotal: 47,
+      rulePct: '97.9%',
+      provenanceEntries: 317,
+      linkMappingsSemFolha: 0,
+    };
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        items: Array.from({ length: 20 }, (_, i) => autoItem(i, v2)).concat(autoItem(99, {})),
+        page: 1,
+        pageSize: 20,
+        totalCount: 21,
+      },
+    });
+
+    const response = await mappingReleaseService.listReleases('workspace-1');
+
+    expect(response.items).toHaveLength(21);
+    expect(response.items[0]).toMatchObject({
+      coverage: null,
+      generatedCoverage: {
+        generatorVersion: '2',
+        compiles: true,
+        compileError: null,
+        linkPct: '100%',
+        rulePct: '97.9%',
+        rulesCovered: 46,
+        limitations: ['limitação sintética'],
+      },
+    });
+    expect(response.items[20]).toMatchObject({ coverage: null });
   });
 
   it('recusa item auto_generated com status fora do enum conhecido', async () => {

@@ -298,4 +298,41 @@ describe('MappingLayoutTreeView', () => {
     expect(vinculos.length).toBeGreaterThan(0);
     expect(vinculos[0].textContent).toMatch(/^.*\S+_\S+$/);
   });
+
+  describe('unavailableReason', () => {
+    const cases: [string, RegExp][] = [
+      ['layout-not-found', /não foi encontrado na API/],
+      ['layout-unreadable', /ilegível ou não possui elementos/],
+      ['unsupported-kind', /tipo de layout não é suportado/],
+      ['xsd-unresolved', /XSD não pôde ser resolvido/],
+    ];
+
+    it.each(cases)('mostra mensagem específica e o código para %s', (reason, message) => {
+      render(
+        <MappingLayoutTreeView
+          source={source}
+          target={{ roots: [], unavailableReason: reason }}
+          rules={[]}
+          limitations={[]}
+        />
+      );
+      expect(screen.getByRole('status')).toHaveTextContent(message);
+      expect(screen.getByRole('status')).toHaveTextContent('Layout de destino indisponível');
+      expect(screen.getByTestId('unavailable-reason')).toHaveTextContent(reason);
+    });
+
+    it('usa a mensagem genérica para razão desconhecida ou ausente', () => {
+      render(
+        <MappingLayoutTreeView
+          source={{ roots: [], unavailableReason: 'nova-razao' }}
+          target={{ roots: [] }}
+          rules={[]}
+          limitations={[]}
+        />
+      );
+      const items = screen.getAllByText(/a API não devolveu os nós/);
+      expect(items).toHaveLength(2);
+      expect(screen.getAllByTestId('unavailable-reason')).toHaveLength(1);
+    });
+  });
 });

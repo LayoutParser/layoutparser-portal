@@ -2,7 +2,7 @@ import { useEffect, useId, useRef } from 'react';
 import type { AssignableMemberRole, WorkspaceMember } from '../../types/member';
 import Button from '../shared/Button';
 import { Avatar, RoleChip, StatusChip } from './MemberChips';
-import { ROLE_LABELS } from './memberLabels';
+import { NO_EMAIL_LABEL, ROLE_LABELS, displayLabel, emailOrId } from './memberLabels';
 import './MemberDrawer.css';
 
 const ASSIGNABLE_ROLES: AssignableMemberRole[] = [
@@ -101,10 +101,12 @@ export function MemberDrawer({
         aria-labelledby={titleId}
       >
         <header className="member-drawer__header">
-          <Avatar displayName={member.displayName} email={member.email} />
+          <Avatar displayName={member.displayName} email={member.email} userId={member.userId} />
           <div className="member-drawer__heading">
-            <h2 id={titleId}>{member.displayName ?? member.email}</h2>
-            {member.displayName && <span className="member-drawer__email">{member.email}</span>}
+            <h2 id={titleId}>{displayLabel(member)}</h2>
+            {member.displayName && (
+              <span className="member-drawer__email">{emailOrId(member)}</span>
+            )}
           </div>
           <button
             ref={closeRef}
@@ -119,7 +121,7 @@ export function MemberDrawer({
 
         <dl className="member-drawer__details">
           <dt>E-mail</dt>
-          <dd>{member.email}</dd>
+          <dd>{member.email ?? NO_EMAIL_LABEL}</dd>
           <dt>Status</dt>
           <dd>
             <StatusChip status={member.status} />
@@ -139,7 +141,7 @@ export function MemberDrawer({
               <select
                 ref={roleRef}
                 className="member-drawer__select"
-                aria-label={`Papel de ${member.email}`}
+                aria-label={`Papel de ${displayLabel(member)}`}
                 value={member.role}
                 disabled={busy}
                 onChange={event => onChangeRole(event.target.value as AssignableMemberRole)}

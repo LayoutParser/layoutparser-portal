@@ -33,3 +33,35 @@ describe('adminDirectoryService.promoteWorkspace', () => {
     );
   });
 });
+
+describe('adminDirectoryService payload com campos nulos ausentes', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('aceita usuário sem email em /api/admin/users', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: [
+        { userId: 'u-1', workspaceCount: 1, createdAt: '2026-09-01T10:00:00Z' },
+        { userId: 'u-2', email: 'pessoa@exemplo.test', workspaceCount: 2, createdAt: '2026-09-02' },
+      ],
+    });
+    const users = await adminDirectoryService.listUsers({ take: 50 });
+    expect(users).toHaveLength(2);
+    expect(users[0].email).toBeUndefined();
+  });
+
+  it('rejeita email com tipo inválido', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: [{ userId: 'u-1', email: 42, workspaceCount: 1, createdAt: 'x' }],
+    });
+    await expect(adminDirectoryService.listUsers({ take: 50 })).rejects.toThrow(
+      'Resposta inválida da API administrativa.'
+    );
+  });
+
+  it('aceita membro sem displayName e sem email', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: [{ userId: 'u-1', role: 'viewer', status: 'active', createdAt: '2026-09-01' }],
+    });
+    await expect(adminDirectoryService.listMembers('w-1')).resolves.toHaveLength(1);
+  });
+});

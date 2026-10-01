@@ -125,8 +125,14 @@ export interface LayoutTreeNode {
   children: LayoutTreeNode[];
 }
 
+/** Razões conhecidas de lado indisponível; a API pode evoluir, então valores novos chegam como string. */
+export type LayoutTreeUnavailableReason =
+  'layout-not-found' | 'layout-unreadable' | 'unsupported-kind' | 'xsd-unresolved';
+
 export interface LayoutTreeSide {
   roots: LayoutTreeNode[];
+  /** Omitido quando a árvore é materializada. Tolera valor desconhecido. */
+  unavailableReason?: LayoutTreeUnavailableReason | (string & {});
 }
 
 /**

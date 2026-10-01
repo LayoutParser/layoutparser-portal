@@ -19,23 +19,23 @@
     "quality": "npm run typecheck && npm run test:coverage && npm run build && npm run audit"
   },
   "dependencies": {
-    "@azure/msal-node": "5.5.0",
-    "@fastify/busboy": "3.2.0",
-    "@fastify/helmet": "13.1.0",
-    "@fastify/http-proxy": "11.6.0",
+    "@azure/msal-node": "7.0.0",
+    "@fastify/busboy": "3.2.2",
+    "@fastify/helmet": "13.1.1",
+    "@fastify/http-proxy": "11.6.3",
     "@fastify/rate-limit": "11.2.0",
-    "@fastify/secure-session": "8.3.0",
-    "dotenv": "17.4.2",
-    "fastify": "5.12.1",
-    "openid-client": "6.8.5",
-    "undici": "7.30.0"
+    "@fastify/secure-session": "8.4.0",
+    "dotenv": "18.0.5",
+    "fastify": "5.12.5",
+    "openid-client": "6.8.8",
+    "undici": "8.11.2"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
-    "@vitest/coverage-v8": "4.1.11",
-    "tsx": "4.23.12",
+    "@vitest/coverage-v8": "5.0.3",
+    "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "4.1.11"
+    "vitest": "5.0.3"
   },
   "allowScripts": {
     "esbuild@0.28.2": true

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -78,6 +78,16 @@ function seedWorkspace(kind: 'personal' | 'organization') {
   });
 }
 
+const openMenu = (email: string) =>
+  fireEvent.click(screen.getByRole('button', { name: `Ações de ${email}` }));
+const pickItem = (name: string) => fireEvent.click(screen.getByRole('menuitem', { name }));
+const pickWorkspace = (target: string) => {
+  fireEvent.focus(screen.getByRole('combobox', { name: 'Workspace' }));
+  fireEvent.click(screen.getByRole('option', { name: new RegExp(target) }));
+};
+
+const openInvite = () => fireEvent.click(screen.getByRole('button', { name: 'Adicionar membro' }));
+
 describe('UsersTab', () => {
   beforeEach(() => {
     Object.values(service).forEach(fn => fn.mockReset());
@@ -127,16 +137,15 @@ describe('UsersTab', () => {
     expect(await screen.findByRole('table')).toBeVisible();
     expect(screen.getByText('Convite pendente')).toBeVisible();
     expect(screen.getByText('Ativo')).toBeVisible();
-    expect(screen.getByRole('button', { name: 'Cancelar convite' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Ações de convidada@example.com' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Ações de dona@example.com' })).toBeNull();
   });
 
   it('mostra estado vazio quando só o dono está no workspace', async () => {
     seedWorkspace('organization');
     service.listMembers.mockResolvedValue([owner]);
     render(<UsersTab />);
-    expect(
-      await screen.findByText('Só você está neste workspace. Adicione alguém acima.')
-    ).toBeVisible();
+    expect(await screen.findByText('Só você está neste workspace. Convide alguém.')).toBeVisible();
   });
 
   it('valida e-mail, normaliza e adiciona; mostra sucesso', async () => {
@@ -146,6 +155,7 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
+    openInvite();
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     const input = screen.getByLabelText('E-mail');
     expect(input).toHaveAttribute('aria-invalid', 'true');
@@ -174,6 +184,7 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
+    openInvite();
     fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'a@b.co' } });
     fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Já é membro.');
@@ -186,13 +197,15 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar convite' }));
+    openMenu('convidada@example.com');
+    pickItem('Cancelar convite');
     const dialog = screen.getByRole('dialog');
     expect(within(dialog).getByRole('button', { name: 'Cancelar' })).toHaveFocus();
     fireEvent.click(within(dialog).getByRole('button', { name: 'Cancelar' }));
     expect(service.removeMember).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar convite' }));
+    openMenu('convidada@example.com');
+    pickItem('Cancelar convite');
     fireEvent.click(
       within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar convite' })
     );
@@ -205,7 +218,8 @@ describe('UsersTab', () => {
     render(<UsersTab />);
     await screen.findByRole('table');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remover' }));
+    openMenu('convidada@example.com');
+    pickItem('Remover membro');
     expect(
       screen.getByText(
         'Remover convidada@example.com do workspace Fiscal da equipe? A pessoa perde o acesso imediatamente.'
@@ -213,17 +227,174 @@ describe('UsersTab', () => {
     ).toBeVisible();
   });
 
-  it('altera o papel pelo select da linha', async () => {
+  it('altera o papel pelo menu da linha, no painel lateral com foco no seletor', async () => {
     seedWorkspace('organization');
     service.listMembers.mockResolvedValue([owner, guest]);
     service.updateRole.mockResolvedValue();
     render(<UsersTab />);
     await screen.findByRole('table');
 
-    fireEvent.change(screen.getByLabelText('Papel de convidada@example.com'), {
-      target: { value: 'reviewer' },
-    });
+    openMenu('convidada@example.com');
+    pickItem('Alterar papel');
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    const select = within(dialog).getByLabelText('Papel de convidada@example.com');
+    expect(select).toHaveFocus();
+    fireEvent.change(select, { target: { value: 'reviewer' } });
     await waitFor(() => expect(service.updateRole).toHaveBeenCalledWith('w1', 'i1', 'reviewer'));
+    expect(await screen.findByRole('status')).toHaveTextContent('Papel atualizado');
+  });
+
+  describe('menu de ações da linha', () => {
+    async function setup() {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner, guest]);
+      render(<UsersTab />);
+      await screen.findByRole('table');
+      return screen.getByRole('button', { name: 'Ações de convidada@example.com' });
+    }
+
+    it('expõe aria-haspopup/expanded, navega por setas e fecha com Esc devolvendo o foco', async () => {
+      const button = await setup();
+      expect(button).toHaveAttribute('aria-haspopup', 'menu');
+      expect(button).toHaveAttribute('aria-expanded', 'false');
+      fireEvent.click(button);
+      expect(button).toHaveAttribute('aria-expanded', 'true');
+      const items = screen.getAllByRole('menuitem');
+      await waitFor(() => expect(items[0]).toHaveFocus());
+      fireEvent.keyDown(items[0], { key: 'ArrowDown' });
+      expect(items[1]).toHaveFocus();
+      fireEvent.keyDown(items[1], { key: 'ArrowDown' });
+      expect(items[0]).toHaveFocus();
+      fireEvent.keyDown(items[0], { key: 'Escape' });
+      expect(screen.queryByRole('menu')).toBeNull();
+      expect(button).toHaveFocus();
+    });
+
+    it('abre com ArrowDown no botão e fecha ao clicar fora', async () => {
+      const button = await setup();
+      fireEvent.keyDown(button, { key: 'ArrowDown' });
+      expect(screen.getByRole('menu')).toBeVisible();
+      fireEvent.mouseDown(document.body);
+      expect(screen.queryByRole('menu')).toBeNull();
+    });
+
+    it('o proprietário não tem menu de ações', async () => {
+      await setup();
+      expect(screen.queryByRole('button', { name: 'Ações de dona@example.com' })).toBeNull();
+    });
+  });
+
+  describe('painel lateral do membro', () => {
+    it('abre pelo nome, mostra detalhes, prende o foco e fecha com Esc devolvendo o foco', async () => {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner, guest]);
+      render(<UsersTab />);
+      await screen.findByRole('table');
+
+      const trigger = screen.getByRole('button', { name: 'convidada@example.com' });
+      trigger.focus();
+      fireEvent.click(trigger);
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText('Convite pendente')).toBeVisible();
+      expect(within(dialog).getByText('Convidado em')).toBeVisible();
+      const close = within(dialog).getByRole('button', { name: 'Fechar detalhes' });
+      expect(close).toHaveFocus();
+
+      const remove = within(dialog).getByRole('button', { name: 'Cancelar convite' });
+      remove.focus();
+      fireEvent.keyDown(remove, { key: 'Tab' });
+      expect(close).toHaveFocus();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+      expect(screen.queryByRole('dialog')).toBeNull();
+      expect(trigger).toHaveFocus();
+    });
+
+    it('remove pelo painel usando o modal de confirmação', async () => {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner, { ...guest, status: 'active' }]);
+      service.removeMember.mockResolvedValue();
+      render(<UsersTab />);
+      await screen.findByRole('table');
+      fireEvent.click(screen.getByRole('button', { name: 'convidada@example.com' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Remover membro' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText(/perde o acesso imediatamente/)).toBeVisible();
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Remover' }));
+      await waitFor(() => expect(service.removeMember).toHaveBeenCalledWith('w1', 'i1'));
+      expect(await screen.findByRole('status')).toHaveTextContent('Pessoa removida');
+    });
+
+    it('proprietário: sem troca de papel nem remoção', async () => {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner]);
+      render(<UsersTab />);
+      await screen.findByRole('table');
+      fireEvent.click(screen.getByRole('button', { name: 'Dona' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).queryByRole('combobox')).toBeNull();
+      expect(within(dialog).queryByRole('button', { name: /Remover|Cancelar convite/ })).toBeNull();
+    });
+  });
+
+  it('toast de erro some sozinho', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      seedWorkspace('organization');
+      service.listMembers.mockResolvedValue([owner, guest]);
+      service.removeMember.mockRejectedValue(
+        new MemberRequestError('failed', 'Falhou ao remover.')
+      );
+      render(<UsersTab />);
+      await screen.findByRole('table');
+      openMenu('convidada@example.com');
+      pickItem('Cancelar convite');
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Cancelar convite' })
+      );
+      expect(await screen.findByRole('alert')).toHaveTextContent('Falhou ao remover.');
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(8100);
+      });
+      expect(screen.queryByRole('alert')).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('filtra por e-mail, papel e status, com contagem e limpeza dos filtros', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockResolvedValue([owner, guest]);
+    render(<UsersTab />);
+    await screen.findByRole('table');
+    expect(screen.getByText('2 membros')).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText('Buscar membro'), { target: { value: 'convidada' } });
+    expect(screen.getByText('1 de 2 membros')).toBeVisible();
+    expect(screen.queryByText('Dona')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Filtrar por status'), { target: { value: 'active' } });
+    expect(screen.getByText('Nenhum membro corresponde aos filtros.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar filtros' }));
+    expect(screen.getByText('2 membros')).toBeVisible();
+  });
+
+  it('mostra iniciais do e-mail quando não há displayName', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockResolvedValue([owner, guest]);
+    render(<UsersTab />);
+    await screen.findByRole('table');
+    expect(screen.getByText('CO')).toBeInTheDocument();
+  });
+
+  it('oferece tentar novamente quando a lista de membros falha', async () => {
+    seedWorkspace('organization');
+    service.listMembers.mockRejectedValueOnce(new Error('Falhou.'));
+    service.listMembers.mockResolvedValue([owner]);
+    render(<UsersTab />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Tentar novamente' }));
+    expect(await screen.findByText('1 membro')).toBeVisible();
   });
 
   it('não chama a API em workspace pessoal', () => {
@@ -310,10 +481,20 @@ describe('UsersTab', () => {
     it('sudo vê todos os workspaces, mesmo o pessoal, e a lista de usuários', async () => {
       seedSudo();
       render(<UsersTab />, { wrapper: MemoryRouter });
-      const select = await screen.findByLabelText('Workspace');
-      expect(within(select).getByText('Pessoal (pessoal, 1 membro)')).toBeTruthy();
-      expect(within(select).getByText('Time B (time, 3 membros)')).toBeTruthy();
-      expect((select as HTMLSelectElement).value).toBe('w1');
+      const combo = await screen.findByLabelText('Workspace');
+      expect((combo as HTMLInputElement).value).toBe('Pessoal (pessoal, 1 membro)');
+      fireEvent.focus(combo);
+      expect(screen.getByRole('option', { name: 'Time B (time, 3 membros)' })).toBeTruthy();
+      // Busca filtra as opções; setas + Enter selecionam.
+      fireEvent.change(combo, { target: { value: 'time' } });
+      expect(screen.queryByRole('option', { name: /Pessoal/ })).toBeNull();
+      fireEvent.change(combo, { target: { value: 'zzz' } });
+      expect(screen.getByText('Nenhum workspace encontrado.')).toBeVisible();
+      fireEvent.change(combo, { target: { value: '' } });
+      fireEvent.keyDown(combo, { key: 'ArrowDown' });
+      fireEvent.keyDown(combo, { key: 'Enter' });
+      await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
+      expect(combo).toHaveAttribute('aria-expanded', 'false');
       await screen.findByText('fulana@example.com');
       await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w1'));
       expect(service.listMembers).not.toHaveBeenCalled();
@@ -323,9 +504,12 @@ describe('UsersTab', () => {
       seedSudo();
       service.addMember.mockRejectedValue(new MemberRequestError('conflict', 'x'));
       render(<UsersTab />, { wrapper: MemoryRouter });
-      fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+      await screen.findByLabelText('Workspace');
+      pickWorkspace('Time B');
       await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
       service.addMember.mockResolvedValue({ ...guest, email: 'nova@example.com' });
+      openInvite();
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       await waitFor(() =>
@@ -341,6 +525,7 @@ describe('UsersTab', () => {
       service.addMember.mockRejectedValue(new MemberRequestError('conflict', 'x'));
       render(<UsersTab />, { wrapper: MemoryRouter });
       await screen.findByLabelText('Workspace');
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       const alert = await screen.findByRole('alert');
@@ -353,7 +538,9 @@ describe('UsersTab', () => {
       seedSudo();
       service.addMember.mockRejectedValue(new MemberRequestError('forbidden', 'x'));
       render(<UsersTab />, { wrapper: MemoryRouter });
-      fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+      await screen.findByLabelText('Workspace');
+      pickWorkspace('Time B');
+      openInvite();
       fireEvent.change(screen.getByLabelText('E-mail'), { target: { value: 'nova@example.com' } });
       fireEvent.click(screen.getByRole('button', { name: 'Adicionar' }));
       expect((await screen.findByRole('alert')).textContent).toBe(
@@ -373,6 +560,7 @@ describe('UsersTab', () => {
       render(<UsersTab />, { wrapper: MemoryRouter });
       fireEvent.click(await screen.findByRole('button', { name: 'p3@x.com' }));
       expect((screen.getByLabelText('E-mail') as HTMLInputElement).value).toBe('p3@x.com');
+      fireEvent.click(screen.getByRole('button', { name: 'Fechar' }));
       fireEvent.click(screen.getByRole('button', { name: 'Próxima' }));
       await waitFor(() =>
         expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 50, take: 50 })
@@ -382,7 +570,8 @@ describe('UsersTab', () => {
       await waitFor(() =>
         expect(adminApi.listUsers).toHaveBeenLastCalledWith({ skip: 0, take: 50 })
       );
-    });
+      // Renderiza 50 linhas e pagina duas vezes: sob carga excede o timeout padrão de 5s.
+    }, 20_000);
 
     it('lista de usuários indisponível (404/503) mostra aviso sem quebrar o resto', async () => {
       seedSudo();
@@ -454,7 +643,7 @@ describe('UsersTab', () => {
         );
         expect(await screen.findByText('Workspace promovido a time.')).toBeTruthy();
         await waitFor(() => expect(workspaces.getCurrentWorkspaces).toHaveBeenCalled());
-        expect(await screen.findByLabelText('E-mail')).toBeTruthy();
+        expect(await screen.findByRole('button', { name: 'Adicionar membro' })).toBeTruthy();
         expect(screen.queryByLabelText('Nome do workspace')).toBeNull();
       });
 
@@ -488,7 +677,8 @@ describe('UsersTab', () => {
       it('não aparece para workspace de time', async () => {
         seedSudo();
         render(<UsersTab />, { wrapper: MemoryRouter });
-        fireEvent.change(await screen.findByLabelText('Workspace'), { target: { value: 'w2' } });
+        await screen.findByLabelText('Workspace');
+        pickWorkspace('Time B');
         await waitFor(() => expect(adminApi.listMembers).toHaveBeenCalledWith('w2'));
         expect(screen.queryByText('Transformar em workspace de time')).toBeNull();
       });

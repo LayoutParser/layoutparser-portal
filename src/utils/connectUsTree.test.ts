@@ -55,4 +55,15 @@ describe('connectUsTree', () => {
     );
     expect(formatNodeCardinality(node('g', 'x'))).toBe('(—)');
   });
+
+  it('não marca ligações como órfãs quando o layout de destino não foi servido', () => {
+    const { byTarget, diagnostics } = buildVinculos(
+      { roots: [node('src-1', 'Origem')] },
+      { roots: [] },
+      [{ ruleId: 'LKM_1', sourceElementGuid: 'src-1', targetElementGuid: 'TAG_x' }]
+    );
+
+    expect(byTarget.size).toBe(0);
+    expect(diagnostics).toEqual([{ code: 'TARGET_LAYOUT_UNAVAILABLE', id: 'destino' }]);
+  });
 });

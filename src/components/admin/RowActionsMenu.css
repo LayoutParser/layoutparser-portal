@@ -1,0 +1,61 @@
+.row-actions__button {
+  width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.row-actions__button:hover:not(:disabled),
+.row-actions__button[aria-expanded='true'] {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border);
+}
+
+.row-actions__button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.row-actions__button:focus-visible,
+.row-actions__item:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.row-actions__menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 4px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.row-actions__item {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.row-actions__item:hover,
+.row-actions__item:focus {
+  background: var(--color-surface-hover);
+}
+
+.row-actions__item--danger {
+  color: var(--color-danger-text);
+}

@@ -12,8 +12,12 @@ import type {
 } from '../../types/member';
 import Button from '../shared/Button';
 import Modal from '../shared/Modal';
+import Toast from '../shared/Toast';
 import { Avatar, RoleChip, StatusChip } from './MemberChips';
+import MemberDrawer from './MemberDrawer';
 import { ROLE_LABELS } from './memberLabels';
+import RowActionsMenu from './RowActionsMenu';
+import WorkspaceCombobox from './WorkspaceCombobox';
 import './UsersTab.css';
 
 const ASSIGNABLE_ROLES: AssignableMemberRole[] = [
@@ -170,6 +174,8 @@ function SkeletonRows({ label, columns }: { label: string; columns: number }) {
   );
 }
 
+const memberKey = (member: WorkspaceMember) => `${member.status}-${member.userId}`;
+
 const NAME_MAX = 120;
 
 function validateWorkspaceName(name: string): string | null {
@@ -309,6 +315,7 @@ const UsersTab = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [pendingRemoval, setPendingRemoval] = useState<WorkspaceMember | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [drawer, setDrawer] = useState<{ key: string; focusRole: boolean } | null>(null);
   const [query, setQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | MemberRole>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | MemberStatus>('all');
@@ -413,6 +420,8 @@ const UsersTab = () => {
     await store.removeMember(workspace.workspaceId, target);
   };
 
+  const drawerMember = drawer ? members.find(item => memberKey(item) === drawer.key) : undefined;
+  const dismissFeedback = store.clearFeedback;
   const closeModal = () => setPendingRemoval(null);
   const pendingInvite = pendingRemoval?.status === 'pending';
 
@@ -425,24 +434,23 @@ const UsersTab = () => {
       <h2 id="users-tab-title">{title}</h2>
 
       {isSudo && (
-        <div className="users-tab__field users-tab__workspace-select">
-          <label htmlFor="admin-workspace">Workspace</label>
-          <select
+        <div className="users-tab__workspace-select">
+          <WorkspaceCombobox
             id="admin-workspace"
+            label="Workspace"
             value={workspace.workspaceId}
-            onChange={event => {
+            options={admin.workspaces.map(item => ({
+              value: item.workspaceId,
+              label: `${item.name} (${KIND_LABELS[item.kind] ?? item.kind}, ${item.memberCount} ${
+                item.memberCount === 1 ? 'membro' : 'membros'
+              })`,
+            }))}
+            onChange={id => {
               setPromoted(false);
-              admin.selectWorkspace(event.target.value);
+              setDrawer(null);
+              admin.selectWorkspace(id);
             }}
-          >
-            {admin.workspaces.map(item => (
-              <option key={item.workspaceId} value={item.workspaceId}>
-                {`${item.name} (${KIND_LABELS[item.kind] ?? item.kind}, ${item.memberCount} ${
-                  item.memberCount === 1 ? 'membro' : 'membros'
-                })`}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       )}
 
@@ -513,17 +521,6 @@ const UsersTab = () => {
             </div>
           </header>
 
-          {notice && (
-            <p role="status" className="users-tab__notice">
-              {notice}
-            </p>
-          )}
-          {actionError && !inviteOpen && (
-            <p role="alert" className="users-tab__alert">
-              {actionError}
-            </p>
-          )}
-
           {status === 'loading' && <SkeletonRows label="Carregando membros…" columns={4} />}
           {status === 'error' && (
             <p role="alert" className="users-tab__alert users-tab__state">
@@ -571,14 +568,21 @@ const UsersTab = () => {
                 </thead>
                 <tbody>
                   {filteredMembers.map(member => (
-                    <tr key={`${member.status}-${member.userId}`}>
+                    <tr key={memberKey(member)}>
                       <td>
                         <span className="users-tab__identity">
                           <Avatar displayName={member.displayName} email={member.email} />
                           <span className="users-tab__identity-text">
-                            <span className="users-tab__name">
+                            <button
+                              type="button"
+                              className="users-tab__name users-tab__name-button"
+                              title="Ver detalhes do membro"
+                              onClick={() =>
+                                setDrawer({ key: memberKey(member), focusRole: false })
+                              }
+                            >
                               {member.displayName ?? member.email}
-                            </span>
+                            </button>
                             {member.displayName && (
                               <span className="users-tab__email">{member.email}</span>
                             )}
@@ -586,41 +590,34 @@ const UsersTab = () => {
                         </span>
                       </td>
                       <td>
-                        {member.role === 'owner' ? (
-                          <RoleChip value="owner" />
-                        ) : (
-                          <select
-                            aria-label={`Papel de ${member.email}`}
-                            value={member.role}
-                            disabled={busy}
-                            onChange={event =>
-                              void store.updateRole(
-                                workspace.workspaceId,
-                                member.userId,
-                                event.target.value as AssignableMemberRole
-                              )
-                            }
-                          >
-                            {ASSIGNABLE_ROLES.map(item => (
-                              <option key={item} value={item}>
-                                {ROLE_LABELS[item]}
-                              </option>
-                            ))}
-                          </select>
-                        )}
+                        <RoleChip value={member.role} />
                       </td>
                       <td>
                         <StatusChip status={member.status} />
                       </td>
                       <td>
                         {member.role !== 'owner' && (
-                          <Button
-                            variant="danger"
+                          <RowActionsMenu
+                            label={`Ações de ${member.email}`}
                             disabled={busy}
-                            onClick={() => setPendingRemoval(member)}
-                          >
-                            {member.status === 'pending' ? 'Cancelar convite' : 'Remover'}
-                          </Button>
+                            actions={[
+                              {
+                                key: 'role',
+                                label: 'Alterar papel',
+                                onSelect: () =>
+                                  setDrawer({ key: memberKey(member), focusRole: true }),
+                              },
+                              {
+                                key: 'remove',
+                                label:
+                                  member.status === 'pending'
+                                    ? 'Cancelar convite'
+                                    : 'Remover membro',
+                                danger: true,
+                                onSelect: () => setPendingRemoval(member),
+                              },
+                            ]}
+                          />
                         )}
                       </td>
                     </tr>
@@ -645,6 +642,27 @@ const UsersTab = () => {
             setEmail(picked);
             setEmailError(null);
             setInviteOpen(true);
+          }}
+        />
+      )}
+
+      {notice && <Toast kind="success" message={notice} onDismiss={dismissFeedback} />}
+      {actionError && !inviteOpen && (
+        <Toast kind="error" message={actionError} onDismiss={dismissFeedback} />
+      )}
+
+      {drawerMember && (
+        <MemberDrawer
+          member={drawerMember}
+          busy={busy}
+          focusRole={drawer?.focusRole}
+          onClose={() => setDrawer(null)}
+          onChangeRole={next =>
+            void store.updateRole(workspace.workspaceId, drawerMember.userId, next)
+          }
+          onRemove={() => {
+            setDrawer(null);
+            setPendingRemoval(drawerMember);
           }}
         />
       )}

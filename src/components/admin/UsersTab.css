@@ -288,3 +288,23 @@
     max-width: none;
   }
 }
+
+/* Nome do membro como gatilho do painel lateral */
+.users-tab__name-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  text-align: left;
+  cursor: pointer;
+}
+
+.users-tab__name-button:hover {
+  text-decoration: underline;
+}
+
+.users-tab__name-button:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}

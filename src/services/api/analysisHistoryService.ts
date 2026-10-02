@@ -37,8 +37,9 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
-function isNullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string';
+// A API omite campos nulos do JSON (WhenWritingNull): ausente equivale a null.
+function isNullableString(value: unknown): value is string | null | undefined {
+  return value === null || value === undefined || typeof value === 'string';
 }
 
 function isValidDate(value: unknown): value is string {
@@ -97,8 +98,8 @@ function parseSummary(value: unknown): AnalysisHistorySummary {
     expiresAt: value.expiresAt,
     source: value.source as AnalysisHistorySource,
     layoutName: parseLayoutName(value.layoutName) as string,
-    layoutGuid: value.layoutGuid,
-    detectedType: value.detectedType,
+    layoutGuid: value.layoutGuid ?? null,
+    detectedType: value.detectedType ?? null,
     fileCount: value.fileCount,
     totalSizeBytes: value.totalSizeBytes,
   };
@@ -137,9 +138,9 @@ function parseLayoutRef(value: unknown): AnalysisHistoryLayoutRef {
 
   return {
     mode: value.mode as AnalysisHistorySource,
-    layoutGuid: value.layoutGuid,
+    layoutGuid: value.layoutGuid ?? null,
     layoutName: parseLayoutName(value.layoutName) as string,
-    fileId: value.fileId,
+    fileId: value.fileId ?? null,
   };
 }
 

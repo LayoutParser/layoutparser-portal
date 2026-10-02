@@ -2,6 +2,14 @@ import apiClient from '../api';
 import type { ClientLogEntry, ClientLogLevel } from '../../types/clientLog';
 import { sanitizeLogContext, sanitizeLogMessage } from '../../utils/logSanitizer';
 
+// A API só aceita Debug|Information|Warning|Error em POST /api/logs/client; enviar 'info'/'warn'
+// resultava em 400 engolido em silêncio e o evento nunca chegava ao log do servidor.
+const apiLevels: Record<ClientLogLevel, string> = {
+  info: 'Information',
+  warn: 'Warning',
+  error: 'Error',
+};
+
 /**
  * Envia eventos de diagnóstico do front-end para a API (POST /api/logs/client), em vez de
  * `console.log` solto — decisão do usuário para termos visibilidade centralizada dos erros
@@ -18,7 +26,7 @@ const send = (level: ClientLogLevel, message: string, context?: Record<string, u
     timestamp: new Date().toISOString(),
   };
 
-  apiClient.post('/api/logs/client', entry).catch(() => undefined);
+  apiClient.post('/api/logs/client', { ...entry, level: apiLevels[level] }).catch(() => undefined);
 };
 
 export const logService = {

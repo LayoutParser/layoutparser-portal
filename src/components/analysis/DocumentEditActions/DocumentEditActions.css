@@ -1,60 +1,67 @@
+/* Compacto: resumo inline + botões pequenos, para caber ao lado da busca. */
 .document-edit-actions {
-  display: grid;
-  gap: var(--spacing-md);
-  margin: 0 0 var(--spacing-lg);
-  padding: var(--spacing-lg);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
-  border-radius: var(--radius-lg);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--color-primary) 8%, var(--color-surface)) 0%,
-    var(--color-surface) 62%
-  );
-  box-shadow: var(--shadow-sm);
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-xs) var(--spacing-sm);
+  margin: 0;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-canvas);
 }
 
 .document-edit-actions__summary {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--spacing-md);
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--spacing-sm);
 }
 
 .document-edit-actions__summary > div {
-  display: grid;
-  gap: var(--spacing-xs);
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--spacing-xs);
 }
 
 .document-edit-actions__summary strong {
   color: var(--color-text-strong);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .document-edit-actions__summary span {
   color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
+  font-size: 0.68rem;
 }
 
 .document-edit-actions__history {
-  padding: var(--spacing-xs) var(--spacing-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
-  color: var(--color-primary) !important;
   font-weight: 600;
-  text-align: right;
 }
 
 .document-edit-actions__buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
+}
+
+.document-edit-actions__buttons .btn {
+  min-height: 28px;
+  padding: 0.2rem 0.6rem;
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
 .document-edit-actions__feedback {
+  flex: 1 1 100%;
   margin: 0;
-  padding: var(--spacing-sm) var(--spacing-md);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
 }
 
 .document-edit-actions__feedback--success {
@@ -68,18 +75,15 @@
 }
 
 @media (max-width: 700px) {
-  .document-edit-actions__summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
-
-  .document-edit-actions__history {
-    align-self: flex-start;
-    text-align: left;
-  }
-
-  .document-edit-actions__buttons,
-  .document-edit-actions__buttons .btn {
+  .document-edit-actions {
     width: 100%;
+  }
+
+  .document-edit-actions__buttons {
+    width: 100%;
+  }
+
+  .document-edit-actions__buttons .btn {
+    flex: 1 1 auto;
   }
 }

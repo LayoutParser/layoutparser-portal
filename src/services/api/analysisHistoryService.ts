@@ -64,6 +64,16 @@ function invalidResponse(): AnalysisHistoryRequestError {
   );
 }
 
+const missingLayoutName = 'Layout não informado';
+
+// A API grava LayoutName como NULL-able (tbLpFiscalAnalysis); sem nome, mostra um rótulo em vez de
+// invalidar a lista inteira.
+function parseLayoutName(value: unknown): string | null {
+  if (value === null || value === undefined) return missingLayoutName;
+  if (typeof value !== 'string') return null;
+  return value.trim() ? value : missingLayoutName;
+}
+
 function parseSummary(value: unknown): AnalysisHistorySummary {
   if (
     !isRecord(value) ||
@@ -72,7 +82,7 @@ function parseSummary(value: unknown): AnalysisHistorySummary {
     !isValidDate(value.expiresAt) ||
     !isNonEmptyString(value.source) ||
     !sources.has(value.source as AnalysisHistorySource) ||
-    !isNonEmptyString(value.layoutName) ||
+    parseLayoutName(value.layoutName) === null ||
     !isNullableString(value.layoutGuid) ||
     !isNullableString(value.detectedType) ||
     !isNonNegativeInteger(value.fileCount) ||
@@ -86,7 +96,7 @@ function parseSummary(value: unknown): AnalysisHistorySummary {
     createdAt: value.createdAt,
     expiresAt: value.expiresAt,
     source: value.source as AnalysisHistorySource,
-    layoutName: value.layoutName,
+    layoutName: parseLayoutName(value.layoutName) as string,
     layoutGuid: value.layoutGuid,
     detectedType: value.detectedType,
     fileCount: value.fileCount,
@@ -119,7 +129,7 @@ function parseLayoutRef(value: unknown): AnalysisHistoryLayoutRef {
     !isNonEmptyString(value.mode) ||
     !sources.has(value.mode as AnalysisHistorySource) ||
     !isNullableString(value.layoutGuid) ||
-    !isNonEmptyString(value.layoutName) ||
+    parseLayoutName(value.layoutName) === null ||
     !isNullableString(value.fileId)
   ) {
     throw invalidResponse();
@@ -128,7 +138,7 @@ function parseLayoutRef(value: unknown): AnalysisHistoryLayoutRef {
   return {
     mode: value.mode as AnalysisHistorySource,
     layoutGuid: value.layoutGuid,
-    layoutName: value.layoutName,
+    layoutName: parseLayoutName(value.layoutName) as string,
     fileId: value.fileId,
   };
 }

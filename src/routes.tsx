@@ -57,6 +57,12 @@ export const router = createBrowserRouter([
         }),
       },
       {
+        path: 'workspace/mapping-studio/:mapperGuid/generated',
+        lazy: async () => ({
+          Component: (await import('./components/mapping-studio/GeneratedMapperPage')).default,
+        }),
+      },
+      {
         path: 'workspace/mapping-studio/:mappingId/:version',
         lazy: async () => ({
           Component: (await import('./components/mapping-studio/MappingStudioPage')).default,

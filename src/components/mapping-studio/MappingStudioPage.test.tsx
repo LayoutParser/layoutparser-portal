@@ -258,8 +258,8 @@ describe('MappingStudioPage', () => {
     expect(screen.getByText('declared_dsl')).toBeVisible();
     expect(screen.getByText(/links 100% · regras 97.9%/)).toBeVisible();
     expect(
-      screen.queryByRole('link', { name: /MAP_CNHI_MQSERIES_SEND_ENV_TXT_XML_NFE/ })
-    ).not.toBeInTheDocument();
+      screen.getByRole('link', { name: /MAP_CNHI_MQSERIES_SEND_ENV_TXT_XML_NFE/ })
+    ).toHaveAttribute('href', '/workspace/mapping-studio/mapper-guid-1/generated');
   });
 
   it('mostra aviso discreto quando a leitura dos gerados automaticamente falha', async () => {

@@ -10,6 +10,7 @@ import type {
   MappingCompileDiagnostic,
   MappingCompileJob,
   MappingGovernanceEnvironment,
+  MappingGeneratedTransformation,
   MappingGovernanceSnapshot,
   MappingRelease,
   MappingReleaseArtifact,
@@ -747,7 +748,52 @@ function mapRequestError(error: unknown): never {
   );
 }
 
+function parseGeneratedTransformation(value: unknown): MappingGeneratedTransformation {
+  if (
+    !isRecord(value) ||
+    !isNonEmptyString(value.mapperGuid) ||
+    (value.status !== 'ready' && value.status !== 'generating' && value.status !== 'none')
+  ) {
+    throw invalidResponse();
+  }
+  // coverageJson é uma STRING JSON; falha de parse não deve derrubar a visualização do conteúdo.
+  let generatedCoverage: MappingGeneratedCoverage | null = null;
+  if (typeof value.coverageJson === 'string') {
+    try {
+      const parsed: unknown = JSON.parse(value.coverageJson);
+      if (isRecord(parsed)) generatedCoverage = parseGeneratedCoverage(parsed);
+    } catch {
+      generatedCoverage = null;
+    }
+  }
+  return {
+    mapperGuid: value.mapperGuid,
+    status: value.status,
+    content: typeof value.content === 'string' ? value.content : null,
+    validationBasis: typeof value.validationBasis === 'string' ? value.validationBasis : null,
+    generatedAt: typeof value.generatedAt === 'string' ? value.generatedAt : null,
+    generatedCoverage,
+  };
+}
+
 export const mappingReleaseService = {
+  /** TCL/XSLT gerado de um mapeador Sysmiddle; `generating` exige polling pelo chamador. */
+  async getGeneratedTransformation(
+    workspaceId: string,
+    mapperGuid: string
+  ): Promise<MappingGeneratedTransformation> {
+    const workspace = resourceSegment(workspaceId, 'Workspace');
+    const mapper = resourceSegment(mapperGuid, 'Mapper');
+    try {
+      const response = await apiClient.get<unknown>(
+        `/api/workspaces/${workspace}/mappings/${mapper}/generated-transformation`
+      );
+      return parseGeneratedTransformation(response.data);
+    } catch (error) {
+      return mapRequestError(error);
+    }
+  },
+
   /** Lista releases do workspace (issue #198) — GET /api/workspaces/{workspaceId}/mapping-releases. */
   async listReleases(
     workspaceId: string,

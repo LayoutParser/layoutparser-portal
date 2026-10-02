@@ -227,12 +227,6 @@
       "deliveredBy": "LayoutParserApi#248"
     },
     {
-      "method": "POST",
-      "path": "/api/layouts/:param/generate-sample",
-      "owner": "LayoutParserApi",
-      "deliveredBy": "LayoutParserApi#355/#356"
-    },
-    {
       "method": "GET",
       "path": "/api/transformation/field-correction/pending",
       "owner": "LayoutParserApi",

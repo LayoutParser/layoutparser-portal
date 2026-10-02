@@ -270,6 +270,12 @@
     },
     {
       "method": "GET",
+      "path": "/api/workspaces/:param/mappings/:param/generated-transformation",
+      "owner": "LayoutParserApi",
+      "deliveredBy": "LayoutParserApi#438 (GeneratedMapperArtifactController)"
+    },
+    {
+      "method": "GET",
       "path": "/api/workspaces/:param/analyses",
       "owner": "LayoutParserApi",
       "availability": "proposed",

@@ -55,6 +55,37 @@ describe('analysisHistoryService', () => {
     });
   });
 
+  it('trata campos nulos omitidos pela API (WhenWritingNull) como null', async () => {
+    const omitted: Partial<typeof summary> = { ...summary };
+    delete omitted.layoutGuid;
+    delete omitted.detectedType;
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: { page: 1, pageSize: 20, total: 1, items: [omitted] },
+    });
+
+    await expect(analysisHistoryService.listAnalyses('workspace-1')).resolves.toMatchObject({
+      items: [{ layoutGuid: null, detectedType: null }],
+    });
+  });
+
+  it('aceita layoutName nulo ou vazio com rótulo padrão (coluna NULL-able na API)', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({
+      data: {
+        page: 1,
+        pageSize: 20,
+        total: 2,
+        items: [
+          { ...summary, layoutName: null },
+          { ...summary, analysisId: 'analysis-2', layoutName: '  ' },
+        ],
+      },
+    });
+
+    await expect(analysisHistoryService.listAnalyses('workspace-1')).resolves.toMatchObject({
+      items: [{ layoutName: 'Layout não informado' }, { layoutName: 'Layout não informado' }],
+    });
+  });
+
   it('recusa paginação fora dos limites antes de chamar a API', async () => {
     await expect(analysisHistoryService.listAnalyses('workspace-1', 0)).rejects.toMatchObject({
       kind: 'invalid_input',

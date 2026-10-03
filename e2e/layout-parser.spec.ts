@@ -754,7 +754,7 @@ test('permite ao usuário escolher o tamanho dos painéis de análise', async ({
     expect(analysisAfterResize?.width).toBeLessThan(analysisBeforeResize?.width ?? Infinity);
   } else {
     await expect(inspectorSplit).toBeHidden();
-    await expect(page.locator('.field-display-edit-help')).toHaveCSS('display', 'grid');
+    await expect(txtPanel).toBeVisible();
   }
 });
 

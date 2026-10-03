@@ -10,8 +10,7 @@ import type {
 import apiClient from '../api';
 
 /**
- * Erro tipado da curadoria de correções de campo (mesmo padrão de `GenerateSampleDocumentError`
- * em `sampleDocumentService.ts`): carrega a causa classificada em vez de achatar tudo em
+ * Erro tipado da curadoria de correções de campo : carrega a causa classificada em vez de achatar tudo em
  * `new Error(string)`.
  */
 export class FieldCorrectionCurationError

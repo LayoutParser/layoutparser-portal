@@ -645,11 +645,8 @@ const MappingStudioDetail = ({ mappingId, version }: { mappingId: string; versio
 
       <header className="mapping-studio-hero">
         <div>
-          <p className="mapping-kicker">
-            {explanation.engine.toUpperCase()} · {explanation.version}
-          </p>
-          <h1>{explanation.description || 'Explicação da transformação'}</h1>
-          <p className="mapping-id-copy">Mapping {explanation.mappingId}</p>
+          <h1>{explanation.description || explanation.mappingId}</h1>
+          <p className="mapping-id-copy">{explanation.mappingId}</p>
         </div>
         <span className={`mapping-mode-badge ${readOnly ? 'mapping-mode-badge--readonly' : ''}`}>
           {readOnly ? 'Somente leitura' : 'Revisão humana habilitada'}
@@ -678,7 +675,6 @@ const MappingStudioDetail = ({ mappingId, version }: { mappingId: string; versio
         <section className="mapping-schema-flow" aria-label="Fluxo de schemas">
           <article>
             <span>Origem</span>
-            <strong>{explanation.sourceSchema?.description || 'Schema de origem'}</strong>
             <code>{explanation.sourceSchema?.layoutGuid || 'GUID não informado'}</code>
           </article>
           <span className="mapping-schema-flow__arrow" aria-hidden="true">
@@ -686,7 +682,6 @@ const MappingStudioDetail = ({ mappingId, version }: { mappingId: string; versio
           </span>
           <article>
             <span>Destino</span>
-            <strong>{explanation.targetSchema?.description || 'Schema de destino'}</strong>
             <code>{explanation.targetSchema?.layoutGuid || 'GUID não informado'}</code>
           </article>
         </section>
@@ -791,14 +786,7 @@ const MappingStudioDetail = ({ mappingId, version }: { mappingId: string; versio
       <section className="mapping-studio-section" aria-labelledby="mapping-layout-tree-title">
         <div className="mapping-section-heading">
           <div>
-            <p className="mapping-kicker">Árvore dupla · estilo Connect-Us</p>
-            <h2 id="mapping-layout-tree-title">Mapeador</h2>
-            <p>
-              Hierarquia real do layout de origem e destino, com regras inline vinculadas por GUID
-              (LayoutParserApi#425). {explanation.opaqueRuleCount} regra(s) opaca(s) no contrato
-              canônico. Selecione um nó com badge de regra e use “Ver regra” para o detalhe
-              completo, incluindo lógica condicional/DSL.
-            </p>
+            <h2 id="mapping-layout-tree-title">Mapeador Connect Us</h2>
           </div>
         </div>
 
@@ -821,7 +809,6 @@ const MappingStudioDetail = ({ mappingId, version }: { mappingId: string; versio
             source={layoutTree.source}
             target={layoutTree.target}
             rules={layoutTree.rules}
-            limitations={layoutTree.limitations}
             explanationRules={explanation.rules}
           />
         )}

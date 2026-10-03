@@ -15,11 +15,6 @@ interface MappingLayoutTreeViewProps {
   source: LayoutTreeSide;
   target: LayoutTreeSide;
   rules: LayoutTreeRuleLink[];
-  /** Texto pronto da API (`LayoutTreeResponse.limitations`) descrevendo regras
-   * condicionais/DSL que não aparecem em `rules` — substitui o cálculo por `ruleId`
-   * compartilhado com `MappingExplanation.rules`, que nunca foi confirmado contra o contrato
-   * real (issue #267). */
-  limitations: string[];
   /** Regras explicáveis do contrato canônico (`MappingExplanation.rules`), cruzadas por
    * `ruleId` com `rules[]` (mesma correlação já usada nos badges/contadores existentes) para
    * exibir o detalhe DSL/condicional do nó selecionado sob demanda. Opcional: telas que ainda
@@ -131,7 +126,6 @@ const MappingLayoutTreeView = ({
   source,
   target,
   rules,
-  limitations,
   explanationRules = [],
 }: MappingLayoutTreeViewProps) => {
   const [expanded, setExpanded] = useState<Set<string>>(() => {
@@ -336,7 +330,11 @@ const MappingLayoutTreeView = ({
     const key = nodeKey(side, node.guid);
     if (visibleKeys && !visibleKeys.has(key)) return null;
 
-    const vinculos = side === 'target' ? (vinculosByTarget.get(node.guid) ?? []) : [];
+    // Ligações campo→campo aparecem só pelo clipe; apenas regras viram linhas filhas.
+    const vinculos =
+      side === 'target'
+        ? (vinculosByTarget.get(node.guid) ?? []).filter(vinculo => vinculo.kind === 'rule')
+        : [];
     const hasChildren = node.children.length > 0 || vinculos.length > 0;
     const isExpanded = hasChildren && (Boolean(visibleKeys) || expanded.has(key));
     const isSelected = selected?.side === side && selected.guid === node.guid;
@@ -433,8 +431,14 @@ const MappingLayoutTreeView = ({
           {side === 'source' && hasRule && (
             <span className="mapping-layout-tree-rule-badges">
               {ruleLinks.map(rule => (
-                <span key={rule.ruleId} className="mapping-layout-tree-rule-badge">
-                  Regra {rule.ruleId}
+                <span
+                  key={rule.ruleId}
+                  className="mapping-layout-tree-rule-badge"
+                  role="img"
+                  aria-label={`Regra ${rule.ruleId}`}
+                  title={`Regra ${rule.ruleId}`}
+                >
+                  ✳
                 </span>
               ))}
             </span>
@@ -512,14 +516,6 @@ const MappingLayoutTreeView = ({
           Ver regra
         </button>
       </div>
-
-      {limitations.length > 0 && (
-        <ul className="mapping-layout-tree-unrepresented" role="status">
-          {limitations.map(limitation => (
-            <li key={limitation}>{limitation}</li>
-          ))}
-        </ul>
-      )}
 
       {diagnostics.length > 0 && (
         <ul className="mapping-layout-tree-unrepresented" role="status">

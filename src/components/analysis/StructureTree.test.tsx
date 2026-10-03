@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { getFieldPhysicalId } from '../../utils/fieldIdentity';
 import { useAppStore } from '../../store/useAppStore';
 import { useFieldStore } from '../../store/useFieldStore';
 import { useStructureStore } from '../../store/useStructureStore';
@@ -146,7 +147,7 @@ describe('StructureTree', () => {
     expect(
       await screen.findByRole('treeitem', { name: /ZRSDM_NFE_400_ENDEREMIT/i })
     ).toBeInTheDocument();
-    expect(useFieldStore.getState().highlightedFields).toContain('LINHA_EMIT_CNPJ');
+    expect(useFieldStore.getState().highlightedFields).toContain(getFieldPhysicalId(sapFields[0]));
   });
 
   it('não aplica a hierarquia de segmentos SAP a um layout MQSeries', async () => {
@@ -236,5 +237,26 @@ describe('StructureTree', () => {
     render(<StructureTree />);
 
     expect(await screen.findByText('Hierarquia de segmentos')).toBeInTheDocument();
+  });
+
+  it('destaca o campo com a identidade física ao clicar na linha e depois no campo', async () => {
+    render(<StructureTree />);
+    const lineItem = await screen.findByRole('treeitem', { name: /HEADER/i });
+    fireEvent.click(lineItem);
+    expect(useFieldStore.getState().highlightedFields).toEqual(
+      new Set([getFieldPhysicalId(fields[0])])
+    );
+
+    fireEvent.click(await screen.findByRole('treeitem', { name: /Data/i }));
+    expect(useFieldStore.getState().highlightedFields).toEqual(
+      new Set([getFieldPhysicalId(fields[1])])
+    );
+  });
+
+  it('não exibe rótulo de tipo para nós de linha e campo', async () => {
+    render(<StructureTree />);
+    fireEvent.click(await screen.findByRole('treeitem', { name: /HEADER/i }));
+    expect(screen.queryByText('LineElement')).not.toBeInTheDocument();
+    expect(screen.queryByText('FieldElement')).not.toBeInTheDocument();
   });
 });

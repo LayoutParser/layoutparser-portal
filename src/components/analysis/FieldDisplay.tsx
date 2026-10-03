@@ -6,7 +6,6 @@ import { useTraceabilityStore } from '../../store/useTraceabilityStore';
 import type { DisplayGroup, Field } from '../../types/field';
 import { findFirstDesyncLineIndex } from '../../utils/documentHealth';
 import { getFieldPhysicalId } from '../../utils/fieldIdentity';
-import DocumentEditActions from './DocumentEditActions/DocumentEditActions';
 import DocumentHealthBanner from './DocumentHealthBanner';
 import Modal from '../shared/Modal';
 import './FieldDisplay.css';
@@ -481,14 +480,6 @@ const FieldDisplay: React.FC = () => {
           preenchido — a decisão agora é do `documentHealth`/`validationErrors`. */}
       <DocumentHealthBanner />
 
-      <div className="field-display-edit-help" role="note">
-        <strong>Inspeção e edição posicional:</strong> selecione um campo para ver sua origem e seus
-        destinos. A edição é uma ação explícita do inspetor e mantém exatamente o mesmo comprimento.
-        Ajuste o espaço do TXT pelo separador entre os painéis.
-      </div>
-
-      <DocumentEditActions />
-
       {/* Nota de leitura específica desta aba: o corte das linhas seguintes é comportamento
           do FieldDisplay, não do payload, então não pertence ao banner de saúde. Só aparece
           quando o corte REALMENTE aconteceu — anunciar corte inexistente faria o usuário
@@ -643,9 +634,9 @@ const FieldDisplay: React.FC = () => {
         let currentPos = 0;
 
         if (isHeader) {
-          // HEADER: usar "HEADER" como sequencial (6 chars) e "HDR" como identificador da linha (3 chars)
+          // HEADER: usar "HEADER" como sequencial (6 chars) e "HEADER" também como identificador exibido da linha
           sequentialFromJson = 'HEADER';
-          lineNumberFromJson = 'HDR';
+          lineNumberFromJson = 'HEADER';
         } else if (isLine999999) {
           // LINHA999999: usar sequencial do JSON se existir; caso contrário, usar "999999"
           const seqCandidate = String(groupData.lineSequence || groupData.sequential || '').trim();

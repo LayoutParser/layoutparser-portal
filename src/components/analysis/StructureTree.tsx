@@ -9,6 +9,8 @@ import {
   isSapIdocLayout,
 } from '../../utils/treeBuilder';
 import { findFirstDesyncLineIndex } from '../../utils/documentHealth';
+import { getFieldPhysicalId } from '../../utils/fieldIdentity';
+import type { Field } from '../../types/field';
 import type { TreeNode } from '../../types/structure';
 import './StructureTree.css';
 
@@ -149,34 +151,36 @@ const StructureTree: React.FC = () => {
     return searchInTree(nodes, node.id, null);
   };
 
+  // Destaca e rola até o campo usando a MESMA identidade física que o FieldDisplay grava em
+  // `data-field-id` e lê em `highlightedFields` (`getFieldPhysicalId`). Usar outro formato de id
+  // (ex.: `${lineName}_${fieldName}`) nunca casa e o destaque some silenciosamente.
+  const highlightAndScroll = (field: Field) => {
+    const fieldId = getFieldPhysicalId(field);
+    useFieldStore.getState().highlightField(fieldId);
+
+    if (scrollTimeoutRef.current !== null) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    scrollTimeoutRef.current = setTimeout(() => {
+      const fieldElement = Array.from(document.querySelectorAll('[data-field-id]')).find(
+        el => el.getAttribute('data-field-id') === fieldId
+      );
+      fieldElement?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+  };
+
   const handleNodeClick = (node: TreeNode) => {
     selectNode(node.id);
 
+    // `fields` do app pode estar vazio (o parse guarda os campos em parseResult): a árvore já
+    // normaliza essa origem em `fieldStoreFields`, que é a fonte usada nos dois cliques.
+    const sourceFields = fieldStoreFields.length > 0 ? fieldStoreFields : fields;
+
     if (node.type === 'LineElementVO' || node.type.includes('Line')) {
-      // Quando clica em uma linha, destacar o primeiro campo da linha
       const lineName = node.sourceLineName || node.name;
-      const lineFields = fieldStoreFields.filter(f => f.lineName === lineName);
-
-      if (lineFields.length > 0) {
-        const { highlightField } = useFieldStore.getState();
-        // Destacar o primeiro campo da linha
-        const firstField = lineFields[0];
-        const fieldId = `${firstField.lineName}_${firstField.fieldName}`;
-        highlightField(fieldId);
-
-        // Scroll para o primeiro campo
-        if (scrollTimeoutRef.current !== null) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-        scrollTimeoutRef.current = setTimeout(() => {
-          const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
-          if (fieldElement) {
-            fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
-      }
+      const firstField = sourceFields.find(f => f.lineName === lineName);
+      if (firstField) highlightAndScroll(firstField);
     } else if (node.type === 'FieldElementVO' || node.type.includes('Field')) {
-      // Encontrar a linha pai do campo
       const parentLine = findParentLine(node, treeData);
 
       if (!parentLine) {
@@ -186,7 +190,8 @@ const StructureTree: React.FC = () => {
         return;
       }
 
-      const lineName = parentLine.name;
+      // Mesmo critério do clique na linha (nome de origem do layout, não o rótulo da árvore).
+      const lineName = parentLine.sourceLineName || parentLine.name;
       const fieldName = node.name || node.element?.name;
 
       if (!fieldName) {
@@ -196,32 +201,11 @@ const StructureTree: React.FC = () => {
         return;
       }
 
-      // Buscar o campo correspondente usando tanto lineName quanto fieldName
-      const field = fields.find(f => {
-        const lineMatch = f.lineName === lineName;
-        const nameMatch = f.fieldName === fieldName;
-        return lineMatch && nameMatch;
-      });
+      const field = sourceFields.find(f => f.lineName === lineName && f.fieldName === fieldName);
 
       if (field) {
-        // Destacar o campo no FieldDisplay
-        const { highlightField } = useFieldStore.getState();
-        const fieldId = `${field.lineName}_${field.fieldName}`;
-        highlightField(fieldId);
-
-        // Scroll para o campo destacado
-        if (scrollTimeoutRef.current !== null) {
-          clearTimeout(scrollTimeoutRef.current);
-        }
-        scrollTimeoutRef.current = setTimeout(() => {
-          const fieldElement = document.querySelector(`[data-field-id="${fieldId}"]`);
-          if (fieldElement) {
-            fieldElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
-        }, 100);
+        highlightAndScroll(field);
       } else if (import.meta.env.DEV) {
-        // Clique numa folha da árvore que não casa com nenhum campo parseado: indica
-        // divergência entre layout e documento, útil só em desenvolvimento.
         console.warn('⚠️ Campo selecionado na árvore não existe no resultado do parse.');
       }
     }
@@ -310,13 +294,11 @@ const StructureTree: React.FC = () => {
           )}
           {!hasChildren && <span className="tree-spacer" />}
           <span className="tree-node-name">{node.name}</span>
-          <span className="tree-node-type">
-            {node.variant === 'sap-segment'
-              ? node.name === 'EDI_DC40'
-                ? 'Controle'
-                : 'Segmento'
-              : node.type.replace('VO', '')}
-          </span>
+          {node.variant === 'sap-segment' && (
+            <span className="tree-node-type">
+              {node.name === 'EDI_DC40' ? 'Controle' : 'Segmento'}
+            </span>
+          )}
         </button>
         {hasChildren && expanded && (
           <ul className="tree-children" role="group">

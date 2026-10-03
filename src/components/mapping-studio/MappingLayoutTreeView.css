@@ -171,12 +171,9 @@
 }
 
 .mapping-layout-tree-rule-badge {
-  padding: 2px var(--spacing-sm);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
-  color: var(--color-on-accent, #fff);
-  font-size: 0.65rem;
-  font-weight: var(--font-weight-semibold);
+  color: #e8590c;
+  font-size: 1rem;
+  line-height: 1;
   white-space: nowrap;
 }
 
